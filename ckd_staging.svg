@@ -1,0 +1,202 @@
+<svg viewBox="0 0 780 920" xmlns="http://www.w3.org/2000/svg" role="img" style="font-family: -apple-system, 'Microsoft JhengHei', sans-serif;">
+  <title>CKD 腎臟病分期邏輯總覽</title>
+  <desc>展示系統中六個腎臟病分期計算的判斷邏輯</desc>
+  <style>
+    .title { font-size: 16px; font-weight: 700; fill: #1a1a1a; }
+    .section-title { font-size: 13px; font-weight: 700; fill: #1a1a1a; }
+    .label { font-size: 10.5px; fill: #1a1a1a; }
+    .sublabel { font-size: 9.5px; fill: #666; }
+    .code { font-size: 10px; font-family: monospace; fill: #1a1a1a; }
+    .box { rx: 6; fill: #f5f5f5; stroke: #e0e0e0; stroke-width: 1; }
+    .box-green { fill: #e8f5e9; stroke: #66bb6a; }
+    .box-yellow { fill: #fff8e1; stroke: #ffca28; }
+    .box-orange { fill: #fff3e0; stroke: #ffa726; }
+    .box-red { fill: #ffebee; stroke: #ef5350; }
+    .box-blue { fill: #e3f2fd; stroke: #42a5f5; }
+    .box-purple { fill: #f3e5f5; stroke: #ab47bc; }
+    .divider { stroke: #ddd; stroke-width: 0.5; stroke-dasharray: 4,3; }
+  </style>
+
+  <!-- White background for PNG -->
+  <rect x="0" y="0" width="780" height="920" fill="white" />
+
+  <!-- Title -->
+  <text x="390" y="28" text-anchor="middle" class="title">腎臟病分期邏輯總覽（report.js）</text>
+
+  <!-- ① eGFR 計算 -->
+  <text x="20" y="58" class="section-title">① eGFR 計算（CKD-EPI 2021 無種族校正）</text>
+  <rect x="20" y="66" width="740" height="42" class="box box-blue" />
+  <text x="390" y="83" text-anchor="middle" class="label">輸入：Creatinine (mg/dL) + 年齡 + 性別（男/女）</text>
+  <text x="390" y="98" text-anchor="middle" class="code">eGFR = 142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^(-1.2) × 0.9938^age × sexMul</text>
+
+  <!-- ② GFR 分期 -->
+  <text x="20" y="130" class="section-title">② GFR 分期（依 eGFR 值）</text>
+  <rect x="20" y="138" width="120" height="36" class="box box-green" />
+  <text x="80" y="155" text-anchor="middle" class="label">正常</text>
+  <text x="80" y="168" text-anchor="middle" class="sublabel">eGFR ≥ 90</text>
+
+  <rect x="148" y="138" width="100" height="36" class="box box-green" />
+  <text x="198" y="155" text-anchor="middle" class="label">CKD2</text>
+  <text x="198" y="168" text-anchor="middle" class="sublabel">60–89</text>
+
+  <rect x="256" y="138" width="100" height="36" class="box box-yellow" />
+  <text x="306" y="155" text-anchor="middle" class="label">CKD3a</text>
+  <text x="306" y="168" text-anchor="middle" class="sublabel">45–59</text>
+
+  <rect x="364" y="138" width="100" height="36" class="box box-orange" />
+  <text x="414" y="155" text-anchor="middle" class="label">CKD3b</text>
+  <text x="414" y="168" text-anchor="middle" class="sublabel">30–44</text>
+
+  <rect x="472" y="138" width="100" height="36" class="box box-red" />
+  <text x="522" y="155" text-anchor="middle" class="label">CKD4</text>
+  <text x="522" y="168" text-anchor="middle" class="sublabel">15–29</text>
+
+  <rect x="580" y="138" width="100" height="36" class="box box-red" />
+  <text x="630" y="155" text-anchor="middle" class="label">CKD5</text>
+  <text x="630" y="168" text-anchor="middle" class="sublabel">&lt;15</text>
+
+  <!-- ③ UACR 分期 -->
+  <text x="20" y="202" class="section-title">③ UACR 分期（尿液白蛋白/肌酐酸比 mg/g）</text>
+  <rect x="20" y="210" width="200" height="36" class="box box-green" />
+  <text x="120" y="227" text-anchor="middle" class="label">正常（A1）</text>
+  <text x="120" y="240" text-anchor="middle" class="sublabel">UACR &lt; 30</text>
+
+  <rect x="240" y="210" width="200" height="36" class="box box-yellow" />
+  <text x="340" y="227" text-anchor="middle" class="label">A2 中度增加</text>
+  <text x="340" y="240" text-anchor="middle" class="sublabel">30–300</text>
+
+  <rect x="460" y="210" width="200" height="36" class="box box-red" />
+  <text x="560" y="227" text-anchor="middle" class="label">A3 重度增加</text>
+  <text x="560" y="240" text-anchor="middle" class="sublabel">&gt; 300</text>
+
+  <!-- ④ UPCR 分期 -->
+  <text x="20" y="274" class="section-title">④ UPCR 分期（尿蛋白/肌酐酸比 mg/g）</text>
+  <rect x="20" y="282" width="150" height="36" class="box box-green" />
+  <text x="95" y="299" text-anchor="middle" class="label">正常</text>
+  <text x="95" y="312" text-anchor="middle" class="sublabel">&lt; 150</text>
+
+  <rect x="180" y="282" width="150" height="36" class="box box-yellow" />
+  <text x="255" y="299" text-anchor="middle" class="label">輕度</text>
+  <text x="255" y="312" text-anchor="middle" class="sublabel">150–500</text>
+
+  <rect x="340" y="282" width="150" height="36" class="box box-orange" />
+  <text x="415" y="299" text-anchor="middle" class="label">顯著</text>
+  <text x="415" y="312" text-anchor="middle" class="sublabel">500–5000</text>
+
+  <rect x="500" y="282" width="150" height="36" class="box box-red" />
+  <text x="575" y="299" text-anchor="middle" class="label">腎病範圍</text>
+  <text x="575" y="312" text-anchor="middle" class="sublabel">&gt; 5000</text>
+
+  <line x1="20" y1="335" x2="760" y2="335" class="divider" />
+
+  <!-- ⑤ KDIGO 風險矩陣 -->
+  <text x="20" y="358" class="section-title">⑤ KDIGO 風險矩陣（GFR 分期 × UACR 分期）</text>
+  <text x="20" y="372" class="sublabel">配對邏輯：以 eGFR 日期為主，優先找同日 UACR，找不到則取 90 天內最近一筆</text>
+
+  <rect x="20" y="382" width="90" height="28" class="box" />
+  <text x="65" y="400" text-anchor="middle" class="sublabel">GFR ↓ / UACR →</text>
+  <rect x="110" y="382" width="90" height="28" class="box" />
+  <text x="155" y="400" text-anchor="middle" class="label">正常</text>
+  <rect x="200" y="382" width="90" height="28" class="box" />
+  <text x="245" y="400" text-anchor="middle" class="label">A2</text>
+  <rect x="290" y="382" width="90" height="28" class="box" />
+  <text x="335" y="400" text-anchor="middle" class="label">A3</text>
+
+  <rect x="20" y="410" width="90" height="24" class="box" />
+  <text x="65" y="426" text-anchor="middle" class="label">正常/CKD2</text>
+  <rect x="110" y="410" width="90" height="24" class="box box-green" />
+  <text x="155" y="426" text-anchor="middle" class="label">低</text>
+  <rect x="200" y="410" width="90" height="24" class="box box-yellow" />
+  <text x="245" y="426" text-anchor="middle" class="label">中</text>
+  <rect x="290" y="410" width="90" height="24" class="box box-orange" />
+  <text x="335" y="426" text-anchor="middle" class="label">高</text>
+
+  <rect x="20" y="434" width="90" height="24" class="box" />
+  <text x="65" y="450" text-anchor="middle" class="label">CKD3a</text>
+  <rect x="110" y="434" width="90" height="24" class="box box-yellow" />
+  <text x="155" y="450" text-anchor="middle" class="label">中</text>
+  <rect x="200" y="434" width="90" height="24" class="box box-orange" />
+  <text x="245" y="450" text-anchor="middle" class="label">高</text>
+  <rect x="290" y="434" width="90" height="24" class="box box-red" />
+  <text x="335" y="450" text-anchor="middle" class="label">極高</text>
+
+  <rect x="20" y="458" width="90" height="24" class="box" />
+  <text x="65" y="474" text-anchor="middle" class="label">CKD3b</text>
+  <rect x="110" y="458" width="90" height="24" class="box box-orange" />
+  <text x="155" y="474" text-anchor="middle" class="label">高</text>
+  <rect x="200" y="458" width="90" height="24" class="box box-red" />
+  <text x="245" y="474" text-anchor="middle" class="label">極高</text>
+  <rect x="290" y="458" width="90" height="24" class="box box-red" />
+  <text x="335" y="474" text-anchor="middle" class="label">極高</text>
+
+  <rect x="20" y="482" width="90" height="24" class="box" />
+  <text x="65" y="498" text-anchor="middle" class="label">CKD4 / CKD5</text>
+  <rect x="110" y="482" width="90" height="24" class="box box-red" />
+  <text x="155" y="498" text-anchor="middle" class="label">極高</text>
+  <rect x="200" y="482" width="90" height="24" class="box box-red" />
+  <text x="245" y="498" text-anchor="middle" class="label">極高</text>
+  <rect x="290" y="482" width="90" height="24" class="box box-red" />
+  <text x="335" y="498" text-anchor="middle" class="label">極高</text>
+
+  <rect x="420" y="410" width="14" height="14" class="box box-green" />
+  <text x="440" y="422" class="sublabel">低風險</text>
+  <rect x="420" y="434" width="14" height="14" class="box box-yellow" />
+  <text x="440" y="446" class="sublabel">中風險</text>
+  <rect x="420" y="458" width="14" height="14" class="box box-orange" />
+  <text x="440" y="470" class="sublabel">高風險</text>
+  <rect x="420" y="482" width="14" height="14" class="box box-red" />
+  <text x="440" y="494" class="sublabel">極高風險</text>
+
+  <line x1="20" y1="520" x2="760" y2="520" class="divider" />
+
+  <!-- ⑥ 台灣 CKD 分期 -->
+  <text x="20" y="543" class="section-title">⑥ 台灣 CKD 分期（健保慢性腎臟病）</text>
+  <text x="20" y="557" class="sublabel">配對邏輯同上：eGFR 日期為主，找同日或 90 天內最近的 UPCR / UACR</text>
+
+  <rect x="20" y="570" width="140" height="40" class="box box-red" />
+  <text x="90" y="587" text-anchor="middle" class="label">eGFR &lt; 15</text>
+  <text x="90" y="602" text-anchor="middle" class="sublabel">→ 第五期（末期）</text>
+
+  <rect x="170" y="570" width="140" height="40" class="box box-red" />
+  <text x="240" y="587" text-anchor="middle" class="label">eGFR 15–29</text>
+  <text x="240" y="602" text-anchor="middle" class="sublabel">→ 第四期</text>
+
+  <rect x="320" y="570" width="140" height="40" class="box box-orange" />
+  <text x="390" y="587" text-anchor="middle" class="label">eGFR 30–44</text>
+  <text x="390" y="602" text-anchor="middle" class="sublabel">→ 第三b期</text>
+
+  <rect x="470" y="570" width="140" height="40" class="box box-yellow" />
+  <text x="540" y="587" text-anchor="middle" class="label">eGFR 45–59</text>
+  <text x="540" y="602" text-anchor="middle" class="sublabel">→ 第三a期</text>
+
+  <rect x="20" y="625" width="740" height="52" class="box box-purple" />
+  <text x="390" y="644" text-anchor="middle" class="label">eGFR ≥ 60 時，需要「腎損傷標記」才算 CKD</text>
+  <text x="390" y="660" text-anchor="middle" class="sublabel">腎損傷標記 = UACR ≥ 30 mg/g 或 UPCR ≥ 150 mg/g</text>
+  <text x="390" y="673" text-anchor="middle" class="sublabel">無腎損傷標記 → 判定為「正常」（非 CKD）</text>
+
+  <rect x="20" y="690" width="280" height="36" class="box box-yellow" />
+  <text x="160" y="707" text-anchor="middle" class="label">有腎損傷 + eGFR ≥ 90 → 第一期</text>
+  <text x="160" y="720" text-anchor="middle" class="sublabel">腎功能正常但有腎損傷</text>
+
+  <rect x="320" y="690" width="280" height="36" class="box box-yellow" />
+  <text x="460" y="707" text-anchor="middle" class="label">有腎損傷 + eGFR 60–89 → 第二期</text>
+  <text x="460" y="720" text-anchor="middle" class="sublabel">輕度腎功能障礙合併腎損傷</text>
+
+  <line x1="20" y1="745" x2="760" y2="745" class="divider" />
+
+  <!-- ⑦ 健保早期 CKD 分級 -->
+  <text x="20" y="768" class="section-title">⑦ 健保早期 CKD 分級（Pre-ESRD）</text>
+  <text x="20" y="782" class="sublabel">只有確認為 CKD（台灣分期第一～五期）時才會產生此欄位</text>
+
+  <rect x="20" y="795" width="340" height="44" class="box box-yellow" />
+  <text x="190" y="814" text-anchor="middle" class="label">P1 早期</text>
+  <text x="190" y="830" text-anchor="middle" class="sublabel">CKD 第一期 / 第二期 / 第三a期（eGFR ≥ 45）</text>
+
+  <rect x="380" y="795" width="340" height="44" class="box box-red" />
+  <text x="550" y="814" text-anchor="middle" class="label">P2 中晚期</text>
+  <text x="550" y="830" text-anchor="middle" class="sublabel">CKD 第三b期 / 第四期 / 第五期（eGFR &lt; 45）</text>
+
+  <rect x="20" y="858" width="740" height="48" class="box" />
+  <text x="390" y="878" text-anchor="middle" class="label">報表顯示：每個分期取最近 3 筆 eGFR 日期的結果</text>
+  <text x="390" y="895" text-anchor="middle" class="sublabel">顏色標記：正常/CKD2/低風險 → 綠色（normal）｜其餘偏高 → 紅色（hi）｜P1 → 黃色（caution）</text>
+</svg>

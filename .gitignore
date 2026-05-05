@@ -1,0 +1,27 @@
+# Build / temp artefacts
+*.tmp.*
+*.zip
+hospital-lab-viewer.zip
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (only needed if you ever add npm install dev deps)
+node_modules/
+
+# Sibling patterns repo (this extension fetches from there at runtime)
+../hospital-lab-patterns/
+
+# Hand-off briefs from Cowork to Claude Code (per-task, not for sharing)
+TASK_BRIEF*.md
+TASK_revision*_BRIEF*.md
+
+# Real patient data — never commit
+examples/
+data/
