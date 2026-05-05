@@ -1,5 +1,66 @@
 # WORKLOG
 
+## 2026-05-06 — Item B Phase 2：viewer 肝炎切到 patterns-computed.js
+
+- 作者：claude（與 YC 共同）
+- 範圍：report（viewer 肝炎渲染分派）+ mapping / patterns-computed（自動同步）
+- 變更：修改
+- 檔案：`report.js`、`mapping.js`、`patterns-computed.js`、`normalizers.js`
+- 原因：Item B 的目標是把肝炎 regex 集中在 `hospital-lab-patterns`
+  catalog 內，不再讓 viewer `report.js` 自己硬編一份。Phase 1（patterns
+  repo）已經把 `HBsAgTiter` / `AntiHBsTiter` / `AntiHCVTiter` 三條 raw
+  數值，與 `HBsAgDisplay` / `AntiHBsDisplay` 兩條 computed display
+  wrapper 加進 catalog；`HCV` 也補上 `needs:['AntiHCV','AntiHCVTiter']`。
+  Phase 2 在 viewer 端把 `report.js` 的 `findHepatitis()` 函式（line
+  ~336–377，包含 `map['HCV']` 與 `map['HBsAg']` 兩個賦值）跟
+  `findAntiHBs` IIFE（line ~383–405）整段刪掉，改成 dispatcher：呼叫
+  `window.HOSPITAL_LAB_PATTERNS_COMPUTED.HELPERS.{HCV,HBsAgDisplay,
+  AntiHBsDisplay}`，輸入是 parse loop 已從 catalog raw 條目抽出的
+  `map['HBsAg']`/`map['HBsAgTiter']` 等，輸出寫回 `map['HCV']`/
+  `map['HBsAgDisplay']`/`map['AntiHBsDisplay']`。viewer manifest（在
+  catalog 內）已把 `HBsAg` / `AntiHBs` 兩個顯示位改 id 成
+  `HBsAgDisplay` / `AntiHBsDisplay`，singleValue render 路徑（`report.js`
+  ~line 593）走 `resultMap[test.id]` 自然取到新 id 的值，不需動 render。
+  raw `HBsAg` / `HBsAgTiter` / `AntiHBs` / `AntiHBsTiter` / `AntiHCV` /
+  `AntiHCVTiter` 六條以 extract-only 形式列在 viewer manifest 末段
+  （沒有 page/col，render 自動跳過），讓 parse loop 仍會抽取它們作為
+  dispatcher 的輸入。
+- 同步：先在 patterns repo push 完 Phase 1，再在 viewer 跑
+  `node sync-patterns.js` 把 5 條新 catalog 條目 + 3 個 computed 函式
+  （`_hepatitisDisplay` helper + `HBsAgDisplay` / `AntiHBsDisplay` /
+  `HCV`）拉進 `mapping.js` 與 `patterns-computed.js`。已用 grep 確認
+  `mapping.js:596` 起有三條 *Titer raw、`mapping.js:617` 起有兩條
+  Display computed、`mapping.js:837–842` 有六條 extract-only 條目；
+  `patterns-computed.js:177` 有 `_hepatitisDisplay` helper、
+  `patterns-computed.js:199–207` 有三個 wrapper 函式並註冊在
+  `COMPUTATIONS` 與 `HELPERS`。
+- 規格驗證：node 跑 4 組樣本確認 dispatcher 行為：
+  - vhyl `HBsAgDisplay({HBsAg:Non-Reactive, HBsAgTiter:0.21})` →
+    `{value:'正常 (HBsAg 0.21)', tag:'normal'}`
+  - vhyl `HCV({AntiHCV:Non-Reactive, AntiHCVTiter:0.12})` →
+    `{value:'正常 (Anti-HCV 0.12)', tag:'normal'}`
+  - vhyl `AntiHBsDisplay({AntiHBs:Reactive, AntiHBsTiter:120.5})` →
+    `{value:'有抗體 (Anti-HBs 120.5)', tag:'normal'}`
+  - vhtt `HBsAgDisplay({HBsAg:Reactive, titer:[]})` → `{value:'帶原',
+    tag:'warning'}`（無 titer 時不附括號）
+  另以 node 跑 vhyl 黏連格式
+  `"HBsAg: 0.21HBsAg (YL): Non-Reactive"`，catalog raw HBsAg regex 抓到
+  `Non-Reactive`、HBsAgTiter regex 抓到 `0.21`，AntiHCV 同理；vhtt
+  `"HBsAg(TT): Reactive"` 抓到 `Reactive` 而 titer 為 undefined（預期）。
+- 重打包：`hospital-lab-viewer.zip` 已重新生成放在 parent folder（14 個
+  白名單檔，約 55KB）。
+- 測試：本機環境無法實機跑 Chrome；請 YC 在 chrome 載入未封裝擴充後：
+  1. fetch vhyl `000151649A`，確認肝炎欄位顯示「正常 (HBsAg 0.21)」、
+     「正常 (Anti-HCV 0.12)」與 Anti-HBs 實際結果。
+  2. fetch 任一 vhtt 病人，確認原 vhtt 顯示不退化（HBsAg 帶原 / 正常
+     等仍能顯示）。
+  3. 若任一欄空白，F12 console 跑 `map['HBsAg']` / `map['HBsAgTiter']`
+     等檢查 raw 條目是否被 parse loop 抽到，再判斷是 sync、parse loop、
+     還是 dispatcher 沒跑。
+- 相依：依賴 `hospital-lab-patterns` Phase 1 commit（catalog 5 條 +
+  computed.js 3 函式 + dist/patterns.json）已先 push。Reporter 不需動，
+  Phase 3 只跑 sync 即可。
+
 ## 2026-05-06 — sync Phase B：GPT/RGT/BUN/CREAT/UA 加性別感知 hiM/hiF
 
 - 作者：claude（與 YC 共同）
