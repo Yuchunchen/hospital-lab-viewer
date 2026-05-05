@@ -1,5 +1,37 @@
 # WORKLOG
 
+## 2026-05-06 — sync Phase B：GPT/RGT/BUN/CREAT/UA 加性別感知 hiM/hiF
+
+- 作者：claude（與 YC 共同）
+- 範圍：mapping（自動同步）
+- 變更：修改
+- 檔案：`mapping.js`、`normalizers.js`、`patterns-computed.js`
+  （皆由 `node sync-patterns.js` 重新產生，無手改）
+- 觸發：`hospital-lab-patterns` 的 Phase B commit `4a1a0b9`
+  （`catalog: GPT/RGT/BUN/CREAT/UA 加 gender-aware hiM/hiF`）已 push
+  到 GitHub。本輪 viewer 端只跑 sync 把 catalog 的新欄位拉進
+  `mapping.js`，讓本機已上線的 `valueStyle()` 性別分支（Phase 2）對
+  這 5 條也生效。
+- sync 結果：`node sync-patterns.js` 重跑成功，三檔皆有更新。手動以
+  `grep hiM:|hiF:` 確認 5 條都帶到新欄位：
+  - GPT（`mapping.js:171`）→ `hiM:45, hiF:34`
+  - RGT（`mapping.js:180`）→ `hiM:55, hiF:38`
+  - BUN（`mapping.js:269`）→ `hiM:20.6, hiF:18.7`
+  - CREAT（`mapping.js:302`）→ `hiM:1.2, hiF:1.0`
+  - UA（`mapping.js:312`）→ `hiM:7.7, hiF:6.2`
+  既有 Phase 1 的 6 條（RBC、Hb、HCT、Fe、TIBC、Ferritin）欄位未受
+  影響。
+- 行為：因 Phase 2 已把 `valueStyle()` 改為性別感知，sync 完即生效，
+  不需要再改 `report.js`。男性病人 GPT 35 / BUN 22 / Cr 1.15 / UA 7.0
+  不再被誤判超標；女性病人對應上限亦會收斂為 34 / 18.7 / 1.0 / 6.2。
+- 重打包：`hospital-lab-viewer.zip` 已重新生成（14 個白名單檔，
+  約 55KB）放在 parent folder。
+- 測試：本機環境無法實機載入 chrome 跑真實病人；請 YC 在 chrome
+  載入未封裝擴充後跑一筆已知男性 + 一筆已知女性病人，確認頂部
+  freshness badge 與 GPT/RGT/BUN/CREAT/UA 顏色判定符合性別預期。
+- 相依：依賴 patterns repo 的 commit `4a1a0b9`（已 push 到 GitHub），
+  本輪 viewer 不需要再對 patterns repo 做變更。
+
 ## 2026-05-06 — viewer 對齊性別感知 threshold（Phase 2）
 
 - 作者：claude（與 YC 共同）
