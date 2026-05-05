@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-05T21:13:50.289Z
+// Synced at: 2026-05-05T21:50:53.537Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -897,5 +897,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-05T21:13:50.289Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-05T21:50:53.537Z";
 }

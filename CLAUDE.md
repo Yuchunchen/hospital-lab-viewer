@@ -39,7 +39,7 @@ let ai to learn more mapping pattern  by provide a link  contais new items
   - UPCR stage (正常/輕度/顯著/腎病範圍) — one per UPCR date
   - KDIGO risk (低/中/高/極高風險) — per eGFR date, paired with same-date or 3-month-nearest UACR
   - Taiwan CKD stage (正常/第一期–第五期, 第三期分3a/3b) — per eGFR date, paired with same-date or 3-month-nearest UPCR+UACR. G1/G2 require damage marker (UACR≥30 or UPCR≥150).
-  - Early CKD class (健保P1早期/P2中晚期) — derived from Taiwan CKD stage. P1=CKD 1–3a (eGFR≥45), P2=CKD 3b–5 (eGFR<45). Only shown when CKD is present.
+  - Early CKD class (健保正常/P1早期/P2中晚期) — derived from Taiwan CKD stage. 正常時顯示「正常」(normal tag)；CKD 時顯示 P1=CKD 1–3a (eGFR≥45) / P2=CKD 3b–5 (eGFR<45)。只有 eGFR 缺值時才空白。
 - **Staging pairing logic**: KDIGO and Taiwan CKD pair eGFR with UACR/UPCR at the same date first; if not found, fall back to the nearest value within 3 months (90 days). Beyond 3 months → no pairing.
 - **UACR sub-page fetch**: UACR values may not appear in the main page reportText. If absent, popup.js fetches sub-pages from opdweb (derived from ernode base URL) for lab orders within 1 year, stopping after finding 3 UACR values.
 - **UPCR pattern**: Matches `RATTC:` label from the ernode API (in addition to UPCR/TP/Cr variants).

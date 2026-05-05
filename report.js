@@ -314,7 +314,7 @@ function buildResultMap(orders, tests, patientInfo) {
       const twCKD = getTaiwanCKDStage(egfr, upcr, uacr);
       if (!twCKD) {
         map['TaiwanCKD'].push({ date: e.date, value: '正常', _tag: 'normal' });
-        // No CKD → no early CKD class
+        map['EarlyCKD'].push({ date: e.date, value: '正常', _tag: 'normal' });
       } else {
         map['TaiwanCKD'].push({ date: e.date, value: twCKD.stage, _tag: 'hi' });
         // Early CKD classification (P1/P2)

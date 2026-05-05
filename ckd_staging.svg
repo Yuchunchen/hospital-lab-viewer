@@ -186,7 +186,7 @@
 
   <!-- ⑦ 健保早期 CKD 分級 -->
   <text x="20" y="768" class="section-title">⑦ 健保早期 CKD 分級（Pre-ESRD）</text>
-  <text x="20" y="782" class="sublabel">只有確認為 CKD（台灣分期第一～五期）時才會產生此欄位</text>
+  <text x="20" y="782" class="sublabel">正常時顯示「正常」；CKD（第一～五期）時顯示 P1早期 / P2中晚期；僅 eGFR 缺值時空白</text>
 
   <rect x="20" y="795" width="340" height="44" class="box box-yellow" />
   <text x="190" y="814" text-anchor="middle" class="label">P1 早期</text>
