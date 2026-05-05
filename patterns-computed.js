@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-05T21:13:50.295Z
+// Synced at: 2026-05-05T21:50:53.543Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -138,7 +138,7 @@ function TaiwanCKD({ eGFR, UACR, UPCR }) {
 // ─── Early CKD class (健保 P1 / P2) ─────────────────────────────────────
 function EarlyCKD({ TaiwanCKD: tw, eGFR }) {
   if (eGFR == null) return null;
-  if (tw === '正常') return null;
+  if (tw === '正常') return '正常';
   return eGFR >= 45 ? 'P1早期' : 'P2中晚期';
 }
 

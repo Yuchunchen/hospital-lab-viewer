@@ -1,5 +1,48 @@
 # WORKLOG
 
+## 2026-05-06 — EarlyCKD 非 CKD 時顯示「正常」(Phase B)
+
+- 作者：claude（與 YC 共同）
+- 範圍：report（CKD pairing 迴圈）+ patterns-computed / mapping（自動同步）
+  + CLAUDE.md / ckd_staging.svg 文件
+- 變更：修改
+- 檔案：`report.js`、`patterns-computed.js`、`mapping.js`、
+  `normalizers.js`、`CLAUDE.md`、`ckd_staging.svg`
+- 觸發：patterns repo 已 push commit `437683c`
+  （`computed: EarlyCKD 非 CKD 時回傳「正常」(視覺一致性)`）。viewer 端同步
+  把獨立的 client-side pairing 迴圈改成在「TaiwanCKD = 正常」分支也 push
+  一筆 EarlyCKD「正常」cell，讓使用者不會把空白誤判為「漏抓」（病患
+  000151649A：3 筆紀錄中只有 115/02/02 顯示 P1，其餘 2 格空白）。
+- sync 結果：`node sync-patterns.js` 重跑，三檔 banner timestamp 刷新。
+  `patterns-computed.js:139–143` 確認 `EarlyCKD()` 已是新版（`tw === '正常'`
+  回傳 `'正常'`，eGFR null 仍回 null）。
+- `report.js` 變更（line 315–318）：在 `if (!twCKD)` 分支多 push 一筆
+  `map['EarlyCKD'].push({ date: e.date, value: '正常', _tag: 'normal' })`，
+  與 `TaiwanCKD` 同 date 同 tag，視覺一致。`else` 分支不動，仍走原本的
+  `getEarlyCKDClass()` → 'P1早期'(_tag='caution') / 'P2中晚期'(_tag='hi')。
+  `getEarlyCKDClass()` 內部不需修改（仍可回 null；caller 端自行判斷）。
+- 文件同步：
+  - `CLAUDE.md` line 42 把「Only shown when CKD is present.」改寫為
+    「正常時顯示「正常」(normal tag)；CKD 時顯示 P1=CKD 1–3a (eGFR≥45) /
+    P2=CKD 3b–5 (eGFR<45)。只有 eGFR 缺值時才空白。」並把欄位名從
+    「健保P1早期/P2中晚期」擴成「健保正常/P1早期/P2中晚期」。
+  - `ckd_staging.svg` line 189 sublabel 改寫成「正常時顯示「正常」；
+    CKD（第一～五期）時顯示 P1早期 / P2中晚期；僅 eGFR 缺值時空白」。
+- 測試：本機環境無法載入 chrome 跑真實病人。改以 node 在
+  `patterns-computed.js` 跑 4 組樣本驗證 helper：
+  - `EarlyCKD({TaiwanCKD:'正常', eGFR:95})` → `'正常'` ✓
+  - `EarlyCKD({TaiwanCKD:'第一期', eGFR:95})` → `'P1早期'` ✓
+  - `EarlyCKD({TaiwanCKD:'第三期 3b', eGFR:35})` → `'P2中晚期'` ✓
+  - `EarlyCKD({TaiwanCKD:null, eGFR:null})` → `null` ✓
+  另以 `node --check report.js` 確認語法 OK。請 YC 在 chrome 載入未封裝
+  擴充後跑 vhyl 000151649A，確認 3 筆紀錄的健保 CKD 分群欄各顯示
+  「正常 / P1 早期 / 正常」（顏色：normal / caution / normal），與
+  「慢性腎臟病分期」列視覺一致。
+- 重打包：`hospital-lab-viewer.zip` 已重新生成放在 parent folder
+  （14 個白名單檔，約 55KB）。
+- 相依：依賴 patterns repo commit `437683c` 已 push 到 GitHub；本輪 viewer
+  不需要再對 patterns repo 做變更。Phase C（reporter）尚未開始。
+
 ## 2026-05-06 — Item B Phase 2：viewer 肝炎切到 patterns-computed.js
 
 - 作者：claude（與 YC 共同）
