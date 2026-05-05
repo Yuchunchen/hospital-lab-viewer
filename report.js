@@ -327,82 +327,27 @@ function buildResultMap(orders, tests, patientInfo) {
     });
   }
 
-  // ── Computed: Hepatitis — single most-recent result ─────────────────
-  // Combines qualitative (TT) result with numeric value.
-  // Format: "正常 (HBsAg 0.24)" / "帶原 (Anti-HCV 1.92)"
-  // Non-standard qualitative text (not Reactive/Non-Reactive) shown as-is.
-
-  // Helper: scan sorted orders for hepatitis pattern, return 1 entry
-  function findHepatitis(qualRe, numRe, numLabel) {
-    for (const order of sorted) {
-      const text = order.reportText || '';
-      const qm = text.match(qualRe);
-      if (!qm) continue;
-      const date = resdttmToTaiwan(order.resdttm) || order.orderDate || '';
-      const qualRaw = qm[1];  // "Reactive", "Non-Reactive", or other text
-      const nm = text.match(numRe);
-      const numStr = nm ? nm[1] : '';
-
-      let displayVal, tag;
-      if (qualRaw === 'Reactive') {
-        displayVal = '帶原';
-        tag = 'warning';
-      } else if (qualRaw === 'Non-Reactive') {
-        displayVal = '正常';
-        tag = 'normal';
-      } else {
-        displayVal = qualRaw;
-        tag = 'caution';
-      }
-      if (numStr) displayVal += ` (${numLabel} ${numStr})`;
-
-      return [{ date, value: displayVal, _tag: tag }];
-    }
-    return [];
+  // ── Computed: Hepatitis display (HBsAg / Anti-HBs / HCV) ────────────
+  // Dispatcher delegates to patterns-computed.js helpers, which take the
+  // raw qualitative + raw titer entries (already populated by the parse
+  // loop above via the extract-only manifest entries) and produce the
+  // single 帶原/正常/有抗體 + (label titer) verdict tuple. The previous
+  // inline findHepatitis / findAntiHBs regex helpers are gone — catalog
+  // is now the single source of truth for hepatitis regexes.
+  const _PC = (typeof window !== 'undefined' && window.HOSPITAL_LAB_PATTERNS_COMPUTED)
+    ? window.HOSPITAL_LAB_PATTERNS_COMPUTED.HELPERS : null;
+  function runHepDisplay(outId, fn, neededIds) {
+    if (!fn) { map[outId] = []; return; }
+    const inputs = {};
+    for (const k of neededIds) inputs[k] = map[k] || [];
+    const out = fn(inputs);
+    map[outId] = out
+      ? [{ date: out.date, value: out.value, _tag: out.tag }]
+      : [];
   }
-
-  // vhyl sample (2026-05-05): "Anti-HCV (YL): Non-Reactive (Non-Reactive)請判讀"
-  // vhtt sample: "HCV Ab(TT): Non-Reactive"
-  map['HCV']   = findHepatitis(
-    /(?:HCV Ab|Anti-HCV)\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/,
-    /(?:HCV Ab|Anti-HCV):\s*([\d.]+)/,
-    'Anti-HCV'
-  );
-  // vhyl sample (2026-05-05): "HBsAg (YL): Non-Reactive (Non-Reactive)"
-  // vhtt sample: "HBsAg(TT): Non-Reactive"
-  map['HBsAg'] = findHepatitis(
-    /HBsAg\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/,
-    /HBsAg:\s*([\d.]+)/,
-    'HBsAg'
-  );
-
-  // Anti-HBs: Reactive = 有抗體 (good/normal), Non-Reactive = 無抗體 (warning)
-  // Opposite polarity from HBsAg/HCV (where Reactive = bad)
-  // vhyl sample (2026-05-05): "Anti-HBs (YL): Reactive (Reactive)"
-  // vhtt sample: "Anti-HBs(TT): Reactive"
-  (function findAntiHBs() {
-    for (const order of sorted) {
-      const text = order.reportText || '';
-      const qm = text.match(/Anti-HBs\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/);
-      if (!qm) continue;
-      const qualRaw = qm[1];
-      const date = resdttmToTaiwan(order.resdttm) || order.orderDate || '';
-      const nm = text.match(/Anti-HBs:\s*([\d.]+)/);
-      const numStr = nm ? nm[1] : '';
-      let displayVal, tag;
-      if (qualRaw === 'Reactive') {
-        displayVal = '有抗體'; tag = 'normal';
-      } else if (qualRaw === 'Non-Reactive') {
-        displayVal = '無抗體'; tag = 'warning';
-      } else {
-        displayVal = qualRaw; tag = 'caution';
-      }
-      if (numStr) displayVal += ` (Anti-HBs ${numStr})`;
-      map['AntiHBs'] = [{ date, value: displayVal, _tag: tag }];
-      return;
-    }
-    map['AntiHBs'] = [];
-  })();
+  runHepDisplay('HCV',            _PC && _PC.HCV,            ['AntiHCV', 'AntiHCVTiter']);
+  runHepDisplay('HBsAgDisplay',   _PC && _PC.HBsAgDisplay,   ['HBsAg',   'HBsAgTiter']);
+  runHepDisplay('AntiHBsDisplay', _PC && _PC.AntiHBsDisplay, ['AntiHBs', 'AntiHBsTiter']);
 
   // ── Computed: RPR — single most-recent result (all-time) ──────────
   // Format: REACTIVE / NON-REACTIVE / raw English text

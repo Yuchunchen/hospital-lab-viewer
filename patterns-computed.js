@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-05T20:55:44.283Z
+// Synced at: 2026-05-05T21:13:50.295Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -164,6 +164,48 @@ function qualitativeFromText({ rawText, label }) {
   return { value: label_zh + titer, tag: isPositive ? 'warning' : 'normal' };
 }
 
+// ─── Hepatitis display ──────────────────────────────────────────────────
+//
+// Three markers (HBsAg / Anti-HBs / Anti-HCV) share one display function;
+// the only axis of variation is polarity:
+//   antigen   — Reactive = 有疾病 (warning), Non-Reactive = 正常 (normal)
+//   antibody  — Reactive = 有抗體 (normal),  Non-Reactive = 無抗體 (warning)
+//
+// Inputs come from raw catalog entries as arrays of {date, value, ...}
+// (the consumer's parse loop produces these). We take the most recent.
+// Returns { date, value, tag } or null when the qualitative entry is missing.
+function _hepatitisDisplay(qualEntries, titerEntries, label, polarity) {
+  const q = (qualEntries && qualEntries[0]) || null;
+  if (!q) return null;
+  const t = (titerEntries && titerEntries[0]) || null;
+  const numStr = t ? t.value : '';
+
+  let displayVal, tag;
+  const qualRaw = q.value;
+  if (qualRaw === 'Reactive') {
+    if (polarity === 'antigen') { displayVal = '帶原';   tag = 'warning'; }
+    else                         { displayVal = '有抗體'; tag = 'normal';  }
+  } else if (qualRaw === 'Non-Reactive') {
+    if (polarity === 'antigen') { displayVal = '正常';   tag = 'normal';  }
+    else                         { displayVal = '無抗體'; tag = 'warning'; }
+  } else {
+    displayVal = qualRaw; tag = 'caution';
+  }
+  if (numStr) displayVal += ` (${label} ${numStr})`;
+
+  return { date: q.date, value: displayVal, tag };
+}
+
+function HBsAgDisplay({ HBsAg, HBsAgTiter }) {
+  return _hepatitisDisplay(HBsAg, HBsAgTiter, 'HBsAg', 'antigen');
+}
+function AntiHBsDisplay({ AntiHBs, AntiHBsTiter }) {
+  return _hepatitisDisplay(AntiHBs, AntiHBsTiter, 'Anti-HBs', 'antibody');
+}
+function HCV({ AntiHCV, AntiHCVTiter }) {
+  return _hepatitisDisplay(AntiHCV, AntiHCVTiter, 'Anti-HCV', 'antigen');
+}
+
 // ─── Computation registry ───────────────────────────────────────────────
 const COMPUTATIONS = [
   { id:'eGFR',       needs:['CREAT', '__patient.age', '__patient.gender'],
@@ -199,6 +241,15 @@ const COMPUTATIONS = [
 
   { id:'EarlyCKD',   needs:['eGFR', 'TaiwanCKD'],
     compute: ({ eGFR, TaiwanCKD: tw }) => EarlyCKD({ eGFR, TaiwanCKD: tw }) },
+
+  { id:'HBsAgDisplay',   needs:['HBsAg', 'HBsAgTiter'],
+    compute: HBsAgDisplay },
+
+  { id:'AntiHBsDisplay', needs:['AntiHBs', 'AntiHBsTiter'],
+    compute: AntiHBsDisplay },
+
+  { id:'HCV',            needs:['AntiHCV', 'AntiHCVTiter'],
+    compute: HCV },
 ];
 
 // Pure helpers (also exported for direct use)
@@ -208,6 +259,8 @@ const HELPERS = {
   GFRStage, UACRStage, UPCRStage,
   KDIGORisk, TaiwanCKD, EarlyCKD,
   qualitativeFromText,
+  _hepatitisDisplay,
+  HBsAgDisplay, AntiHBsDisplay, HCV,
 };
 
 // ─── Exports ─────────────────────────────────────────────────────────────

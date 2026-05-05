@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-05T20:55:44.277Z
+// Synced at: 2026-05-05T21:13:50.289Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -571,8 +571,11 @@ const CATALOG = [
     qualitative:true,
     notes:'(TT) suffix used at vhtt; alternation handles both hospitals.' },
 
+  // vhyl sample (2026-05-06): aligned to HBsAg/AntiHCV style — accepts
+  // optional (TT|YL) hospital tag and stops the value capture before any
+  // digits so vhyl's concatenated numeric+qualitative line parses cleanly.
   { id:'AntiHBs',
-    pattern: /Anti-HBs(?:\(TT\))?:\s*(\S+)/,
+    pattern: /Anti-HBs\s*(?:\((?:TT|YL)\))?:\s*([^\s\d]\S*)/,
     displayName:'B型肝炎表面抗體 (Anti-HBs)', shortLabel:'Anti-HBs',
     category:'肝炎 / 感染',
     qualitative:true,
@@ -586,14 +589,54 @@ const CATALOG = [
     qualitative:true,
     notes:'vhtt uses "HCV Ab(TT):", vhyl uses "Anti-HCV:".' },
 
+  // Raw numeric titer entries — viewer's computed display wrappers consume
+  // these to produce 帶原/正常/有抗體 + (label titer) tuples. vhyl emits
+  // "HBsAg: 0.21HBsAg (YL): Non-Reactive" — \[\d.\]+ stops at the next "H"
+  // so we get the numeric without the qualitative text bleeding in.
+  { id:'HBsAgTiter',
+    pattern: /HBsAg:\s*([\d.]+)/,
+    displayName:'HBsAg 滴度', shortLabel:'HBsAg titer',
+    unit:'', category:'肝炎 / 感染',
+    notes:'Numeric titer for HBsAg. Consumed by HBsAgDisplay computed wrapper.' },
+
+  { id:'AntiHBsTiter',
+    pattern: /Anti-HBs:\s*([\d.]+)/,
+    displayName:'Anti-HBs 滴度', shortLabel:'Anti-HBs titer',
+    unit:'', category:'肝炎 / 感染',
+    notes:'Numeric titer for Anti-HBs. Consumed by AntiHBsDisplay computed wrapper.' },
+
+  { id:'AntiHCVTiter',
+    pattern: /(?:HCV Ab|Anti-HCV):\s*([\d.]+)/,
+    displayName:'Anti-HCV 滴度', shortLabel:'Anti-HCV titer',
+    unit:'', category:'肝炎 / 感染',
+    notes:'Numeric titer for Anti-HCV. Consumed by HCV computed wrapper.' },
+
+  // Computed display wrappers — viewer points its manifest at these ids
+  // (HCV / HBsAgDisplay / AntiHBsDisplay) to render the patient-friendly
+  // verdict tuple. Reporter keeps using raw HBsAg / AntiHBs / AntiHCV.
+  { id:'HBsAgDisplay', computed:'HBsAgDisplay', pattern:null,
+    needs:['HBsAg','HBsAgTiter'],
+    displayName:'B型肝炎(顯示)', shortLabel:'HBsAg',
+    category:'肝炎 / 感染',
+    qualitative:true, singleValue:true,
+    notes:'Computed display wrapper. viewer 用此 id 顯示;reporter 用 raw HBsAg。' },
+
+  { id:'AntiHBsDisplay', computed:'AntiHBsDisplay', pattern:null,
+    needs:['AntiHBs','AntiHBsTiter'],
+    displayName:'B肝抗體(顯示)', shortLabel:'Anti-HBs',
+    category:'肝炎 / 感染',
+    qualitative:true, singleValue:true,
+    notes:'Anti-HBs polarity 與 HBsAg/HCV 相反:Reactive=有抗體=normal。' },
+
   // Viewer's computed wrapper — same concept as AntiHCV, but produces
   // 帶原/正常 + numeric titer for the patient handout. Kept as a separate
   // catalog entry so report.js's special-case code can reference id "HCV".
   { id:'HCV', computed:'HCV', pattern:null,
+    needs:['AntiHCV','AntiHCVTiter'],
     displayName:'C型肝炎', shortLabel:'HCV',
     category:'肝炎 / 感染',
     qualitative:true, singleValue:true,
-    notes:'Computed display wrapper around AntiHCV raw data.' },
+    notes:'Computed display wrapper around AntiHCV raw + AntiHCVTiter numeric.' },
 
   { id:'HIV',
     pattern: /HIV[^:]*:\s*(\S+)/i,
@@ -775,16 +818,28 @@ const VIEWER_MANIFEST = [
 
   // ── Col 4 │ 肝炎 ─────────────────────────────────────────────────────
   // Bilirubin numerics rendered alongside the qualitative hepatitis tests.
-  // HCV / HBsAg / AntiHBs use computed wrappers (singleValue: true) to
-  // produce patient-friendly verdicts. report.js's findHepatitis() handles
-  // this by id when `computed` is set on the resolved entry.
-  { id:'DBIL', page:1, col:4, section:'肝炎' },
-  { id:'TBIL', page:1, col:4, section:'肝炎' },
-  { id:'HCV',     page:1, col:4, section:'肝炎' },                  // catalog entry already computed
-  { id:'HBsAg',   page:1, col:4, section:'肝炎',
-    computed:'HBsAg',  pattern:null, singleValue:true },             // override raw → computed
-  { id:'AntiHBs', page:1, col:4, section:'肝炎',
-    computed:'AntiHBs', pattern:null, singleValue:true },
+  // HCV / HBsAgDisplay / AntiHBsDisplay are computed wrappers from
+  // catalog (singleValue:true) — they consume raw qualitative + raw titer
+  // entries (extract-only entries below) and produce 帶原/正常/有抗體 +
+  // (label titer) verdict tuples. Phase 2 (viewer): report.js will gain
+  // a small dispatcher that runs PATTERNS_COMPUTED.{HCV,HBsAgDisplay,
+  // AntiHBsDisplay} against `map` and writes back the verdict entries.
+  { id:'DBIL',           page:1, col:4, section:'肝炎' },
+  { id:'TBIL',           page:1, col:4, section:'肝炎' },
+  { id:'HCV',            page:1, col:4, section:'肝炎' },
+  { id:'HBsAgDisplay',   page:1, col:4, section:'肝炎' },
+  { id:'AntiHBsDisplay', page:1, col:4, section:'肝炎' },
+
+  // Extract-only entries — no page/col so render skips them, but the
+  // parse loop in viewer report.js (which iterates the resolved manifest)
+  // populates map[id] with regex matches. Required so HCV /
+  // HBsAgDisplay / AntiHBsDisplay computed wrappers have inputs.
+  { id:'HBsAg' },
+  { id:'HBsAgTiter' },
+  { id:'AntiHBs' },
+  { id:'AntiHBsTiter' },
+  { id:'AntiHCV' },
+  { id:'AntiHCVTiter' },
 
   // ═══════════════════════════════════════════════════════════════════════
   // PAGE 2 — text-block entries (DEXA / endoscopy / sono)
@@ -842,5 +897,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-05T20:55:44.277Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-05T21:13:50.289Z";
 }
