@@ -499,12 +499,22 @@ function buildTextResultMap(orders, tests) {
 // Normal values inherit the default style (black, not bold) — only out-of-range
 // values get colored + bolded so they pop on the page.
 // isLatest: true for the most-recent (rightmost) value cell
-function valueStyle(val, test, bw, isLatest) {
+// gender:   '男' / '女' / '' — when entry has loM/hiM/loF/hiF, picks gender-specific
+//           thresholds; falls back to test.lo / test.hi (wide envelope) when unknown.
+function valueStyle(val, test, bw, isLatest, gender) {
   const n = parseFloat(String(val).replace(/^[<>]\s*/, ''));
   let s = '';
   if (!isNaN(n)) {
-    const isHigh = test.hi != null && n > test.hi;
-    const isLow  = test.lo != null && n < test.lo;
+    let hi = test.hi, lo = test.lo;
+    if (gender === '男' && (test.hiM != null || test.loM != null)) {
+      hi = test.hiM != null ? test.hiM : hi;
+      lo = test.loM != null ? test.loM : lo;
+    } else if (gender === '女' && (test.hiF != null || test.loF != null)) {
+      hi = test.hiF != null ? test.hiF : hi;
+      lo = test.loF != null ? test.loF : lo;
+    }
+    const isHigh = hi != null && n > hi;
+    const isLow  = lo != null && n < lo;
     if (isHigh) {
       s += bw ? 'font-weight:700;text-decoration:underline;' : 'color:#c0392b;font-weight:700;';
     } else if (isLow) {
@@ -590,7 +600,7 @@ function buildTextBlock(test, entry) {
 }
 
 // ─── Build one test block (dispatches on kind) ───────────────────────────────
-function buildTestBlock(test, resultMap, bw) {
+function buildTestBlock(test, resultMap, bw, gender) {
   if (test.kind === 'text') {
     return buildTextBlock(test, resultMap[test.id]);
   }
@@ -647,7 +657,7 @@ function buildTestBlock(test, resultMap, bw) {
         if (i === latestIdx) sty += 'background:#ddd;padding:0 3px;';
         return `<td style="${sty}">${h(c.value)}${star}</td>`;
       }
-      return `<td style="${valueStyle(c.value, test, bw, i === latestIdx)}">${h(c.value)}</td>`;
+      return `<td style="${valueStyle(c.value, test, bw, i === latestIdx, gender)}">${h(c.value)}</td>`;
     })
     .join('');
 
@@ -668,8 +678,8 @@ function buildTestBlock(test, resultMap, bw) {
 }
 
 // ─── Build one section box ────────────────────────────────────────────────────
-function buildSectionBox(sectionName, tests, resultMap, bw) {
-  const blocks = tests.map(t => buildTestBlock(t, resultMap, bw)).join('');
+function buildSectionBox(sectionName, tests, resultMap, bw, gender) {
+  const blocks = tests.map(t => buildTestBlock(t, resultMap, bw, gender)).join('');
   return `
     <div class="section-box">
       <div class="section-title">${h(sectionName)}</div>
@@ -738,7 +748,7 @@ function buildReminderBox(unshown) {
 }
 
 // ─── Build one column ─────────────────────────────────────────────────────────
-function buildColumn(pageNum, colNum, resultMap, tests, bw) {
+function buildColumn(pageNum, colNum, resultMap, tests, bw, gender) {
   const colTests = tests.filter(t => t.page === pageNum && t.col === colNum);
   if (!colTests.length) return '<div class="report-col"></div>';
 
@@ -749,7 +759,7 @@ function buildColumn(pageNum, colNum, resultMap, tests, bw) {
     bySection[t.section].push(t);
   });
 
-  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw)).join('');
+  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw, gender)).join('');
   return `<div class="report-col">${html}</div>`;
 }
 
@@ -946,7 +956,7 @@ const REPORT_CSS = `
 `;
 
 // ─── Build page-2 text-report column (col 1–2 entries only) ─────────────────
-function buildPage2Column(resultMap, tests, bw) {
+function buildPage2Column(resultMap, tests, bw, gender) {
   // Only include page-2 entries without a col, or col 1/2 (text-report blocks)
   const p2Tests = tests.filter(t => t.page === 2 && (!t.col || t.col <= 2));
   if (!p2Tests.length) return '<div class="report-col"></div>';
@@ -958,7 +968,7 @@ function buildPage2Column(resultMap, tests, bw) {
     bySection[t.section].push(t);
   });
 
-  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw)).join('');
+  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw, gender)).join('');
   return `<div class="report-col">${html}</div>`;
 }
 
@@ -1015,22 +1025,22 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
       <div class="page-header">${h(headerTitle)}</div>
       <div class="page-sub">${subInfo}</div>
       <div class="report-4cols">
-        ${buildColumn(1, 1, resultMap, tests, bw)}
-        ${buildColumn(1, 2, resultMap, tests, bw)}
-        ${buildColumn(1, 3, resultMap, tests, bw)}
-        ${buildColumn(1, 4, resultMap, tests, bw)}
+        ${buildColumn(1, 1, resultMap, tests, bw, gender)}
+        ${buildColumn(1, 2, resultMap, tests, bw, gender)}
+        ${buildColumn(1, 3, resultMap, tests, bw, gender)}
+        ${buildColumn(1, 4, resultMap, tests, bw, gender)}
       </div>
       ${hasPage2 ? '' : reminderHtml}
       ${legendHtml}
     </div>`;
 
-  const hivCol = hivReport ? buildColumn(2, 3, resultMap, tests, bw) : '<div class="report-col"></div>';
+  const hivCol = hivReport ? buildColumn(2, 3, resultMap, tests, bw, gender) : '<div class="report-col"></div>';
   const page2 = hasPage2 ? `
     <div class="page">
       <div class="page-header">${h(headerTitle)}</div>
       <div class="page-sub">${subInfo}　（第 2 頁）</div>
       <div class="report-4cols">
-        ${buildPage2Column(resultMap, tests, bw)}
+        ${buildPage2Column(resultMap, tests, bw, gender)}
         <div class="report-col">${reminderHtml}</div>
         ${hivCol}
         <div class="report-col"></div>

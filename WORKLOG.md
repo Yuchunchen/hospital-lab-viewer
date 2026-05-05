@@ -1,5 +1,53 @@
 # WORKLOG
 
+## 2026-05-06 — viewer 對齊性別感知 threshold（Phase 2）
+
+- 作者：claude（與 YC 共同）
+- 範圍：report、mapping（自動同步）
+- 變更：修改
+- 檔案：`report.js`、`mapping.js`、`normalizers.js`、`patterns-computed.js`
+  （後三者由 `node sync-patterns.js` 重新產生）
+- 觸發：patterns repo 的 Phase 1 已把 `loM/hiM/loF/hiF` 寫進
+  catalog 6 條（RBC、Hb、HCT、Fe、TIBC、Ferritin）。本輪 viewer 接手
+  把 alarm 判定改成性別感知，解決女性病人 Fe=58 在 viewer 被誤判過低
+  的回報案（vhyl 000151649A）。
+- sync 結果：`node sync-patterns.js` 重新打包 mapping.js / normalizers.js /
+  patterns-computed.js。手動確認 mapping.js 內六條目都帶了
+  `loM/hiM/loF/hiF`（grep 命中 96、105、115、417、426、443 行；對應
+  RBC、Hb、HCT、Fe、TIBC、Ferritin），fallback `lo`/`hi` 仍保留為
+  `min(loM,loF)`、`max(hiM,hiF)` 寬包絡。
+- `valueStyle()` 變更（`report.js:502`）：
+  - 簽名加 `gender` 參數（第 5 個）。
+  - 新增分支：`gender === '男'` 且條目有 `loM/hiM` 任一 → 使用
+    `hiM/loM`（單側存在則只覆蓋該側，另一側仍用 `test.lo/hi`）。
+  - 對稱分支：`gender === '女'` 且條目有 `loF/hiF` 任一 → 使用 `hiF/loF`。
+  - 性別未知（空字串、null、其他值）或條目沒有性別欄位 → 走原本
+    `test.hi`/`test.lo`，舊行為不變。
+- Call chain 改動（gender 從 `generatePatientPages` 沿著呼叫鏈傳到
+  `valueStyle`）：
+  - `buildTestBlock(test, resultMap, bw, gender)` — `report.js:593`
+  - `buildSectionBox(sectionName, tests, resultMap, bw, gender)` — `report.js:671`
+  - `buildColumn(pageNum, colNum, resultMap, tests, bw, gender)` — `report.js:741`
+  - `buildPage2Column(resultMap, tests, bw, gender)` — `report.js:949`
+  - 7 個 call site（page1 四欄、HIV col、page2 文字欄）全部加上
+    `gender` 引數。`generatePatientPages` 早就 destructure 出 `gender`
+    變數（行 995），不需新拉資料來源。`generateDebugReport` 不走
+    `valueStyle` 路徑，無需改動。
+- gender 格式：與 `calcEGFR` 一致，使用 viewer 既有的 `'男'`/`'女'`
+  字串（不是 `'M'`/`'F'`）。
+- 測試：本機環境無法載入擴充功能跑真實病人 UI。改以離線單元測試
+  覆蓋 TASK_BRIEF §8 全部 12 個案例（女 Fe 58/45、男 Fe 58/70、unknown
+  Fe 58、女 Hb 13/11、男 Hb 13、男女 Ferritin 25 與女 Ferritin 250、
+  以及條目無性別欄位的 fallback）→ 12/12 全綠。`node --check report.js`
+  亦通過。請 YC 在 chrome 載入未封裝擴充後跑 vhyl 000151649A 確認
+  Fe=58 不再紅字（該病人為女性）。
+- 重打包：`hospital-lab-viewer.zip` 已重新生成（14 個白名單檔，55KB）。
+- 相依：依賴 hospital-lab-patterns repo 的 Phase 1 commit 已 push
+  到 GitHub；本輪不涉及 patterns repo 變更。
+- 下一步：Phase 3（reporter）尚未開始；reporter manifest 對這 6 條
+  有 `hi:null lo:null` override，需要 YC 決定要不要也打開 alarm
+  顯示（見 TASK_BRIEF §7、§9）。
+
 ## 2026-05-05 — viewer hepatitis regex 對齊 vhyl（HCV / HBsAg / AntiHBs）
 
 - 作者：claude（與 YC 共同）

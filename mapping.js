@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-05T15:06:34.085Z
+// Synced at: 2026-05-05T20:18:55.038Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -92,14 +92,18 @@ const CATALOG = [
     displayName:'紅血球 (RBC)', shortLabel:'RBC',
     unit:'×10⁶/µL', category:'血液',
     ref:'男 4.2–6.2，女 3.7–5.5 ×10⁶/µL',
-    refLo:3.7, refHi:6.2, hi:6.2, lo:4.2 },
+    refLo:3.7, refHi:6.2,
+    loM:4.2, hiM:6.2, loF:3.7, hiF:5.5,
+    lo:3.7, hi:6.2 },
 
   { id:'Hb',
     pattern: /(?:Hb|HGB):\s*([\d.]+)/,
     displayName:'血色素 (Hemoglobin)', shortLabel:'Hb',
     unit:'g/dL', category:'血液',
     ref:'男 14–18，女 12–16 g/dL',
-    refLo:12, refHi:18, hi:18, lo:14,
+    refLo:12, refHi:18,
+    loM:14, hiM:18, loF:12, hiF:16,
+    lo:12, hi:18,
     notes:'Pattern matches both "Hb:" and "HGB:" labels.' },
 
   { id:'HCT',
@@ -107,7 +111,9 @@ const CATALOG = [
     displayName:'血比容 (HCT)', shortLabel:'HCT',
     unit:'%', category:'血液',
     ref:'男 39–53，女 33–47 %',
-    refLo:33, refHi:53, hi:53, lo:39 },
+    refLo:33, refHi:53,
+    loM:39, hiM:53, loF:33, hiF:47,
+    lo:33, hi:53 },
 
   { id:'MCV',
     pattern: /MCV:\s*([\d.]+)/,
@@ -407,14 +413,18 @@ const CATALOG = [
     displayName:'血清鐵 (Fe)', shortLabel:'Fe',
     unit:'µg/dL', category:'鐵代謝',
     ref:'男 65–175，女 50–170 µg/dL',
-    refLo:50, refHi:175, hi:175, lo:65 },
+    refLo:50, refHi:175,
+    loM:65, hiM:175, loF:50, hiF:170,
+    lo:50, hi:175 },
 
   { id:'TIBC',
     pattern: /TIBC:\s*([\d.]+)/,
     displayName:'總鐵結合力 (TIBC)', shortLabel:'TIBC',
     unit:'µg/dL', category:'鐵代謝',
     ref:'男 134–415，女 120–480 µg/dL',
-    refLo:120, refHi:480, hi:415, lo:134 },
+    refLo:120, refHi:480,
+    loM:134, hiM:415, loF:120, hiF:480,
+    lo:120, hi:480 },
 
   // vhyl sample (2026-05-05): "更正報告 FE: 58TIBC: 267.00TS: 22"
   { id:'TSAT',
@@ -429,7 +439,9 @@ const CATALOG = [
     displayName:'鐵蛋白 (Ferritin)', shortLabel:'Ferritin',
     unit:'ng/mL', category:'鐵代謝',
     ref:'男 21.81–274.66，女 4.63–204.00 ng/mL',
-    refLo:4.63, refHi:274.66, hi:274.66, lo:21.81,
+    refLo:4.63, refHi:274.66,
+    loM:21.81, hiM:274.66, loF:4.63, hiF:204.00,
+    lo:4.63, hi:274.66,
     notes:'Capture allows leading <> operator (handles "<5.0", ">2000" results).' },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -819,5 +831,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-05T15:06:34.085Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-05T20:18:55.038Z";
 }
