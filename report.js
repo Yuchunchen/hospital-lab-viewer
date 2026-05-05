@@ -361,26 +361,31 @@ function buildResultMap(orders, tests, patientInfo) {
     return [];
   }
 
+  // vhyl sample (2026-05-05): "Anti-HCV (YL): Non-Reactive (Non-Reactive)請判讀"
+  // vhtt sample: "HCV Ab(TT): Non-Reactive"
   map['HCV']   = findHepatitis(
-    /HCV Ab\(TT\):\s*(\S+)/,
-    /Anti-HCV:\s*([\d.]+)/,
+    /(?:HCV Ab|Anti-HCV)\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/,
+    /(?:HCV Ab|Anti-HCV):\s*([\d.]+)/,
     'Anti-HCV'
   );
+  // vhyl sample (2026-05-05): "HBsAg (YL): Non-Reactive (Non-Reactive)"
+  // vhtt sample: "HBsAg(TT): Non-Reactive"
   map['HBsAg'] = findHepatitis(
-    /HBsAg\(TT\):\s*(\S+)/,
+    /HBsAg\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/,
     /HBsAg:\s*([\d.]+)/,
     'HBsAg'
   );
 
   // Anti-HBs: Reactive = 有抗體 (good/normal), Non-Reactive = 無抗體 (warning)
   // Opposite polarity from HBsAg/HCV (where Reactive = bad)
+  // vhyl sample (2026-05-05): "Anti-HBs (YL): Reactive (Reactive)"
+  // vhtt sample: "Anti-HBs(TT): Reactive"
   (function findAntiHBs() {
     for (const order of sorted) {
       const text = order.reportText || '';
-      const qm = text.match(/Anti-HBs:\s*(\S+)/);
+      const qm = text.match(/Anti-HBs\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/);
       if (!qm) continue;
       const qualRaw = qm[1];
-      if (/[\d.]/.test(qualRaw)) continue;  // skip numeric-only line
       const date = resdttmToTaiwan(order.resdttm) || order.orderDate || '';
       const nm = text.match(/Anti-HBs:\s*([\d.]+)/);
       const numStr = nm ? nm[1] : '';

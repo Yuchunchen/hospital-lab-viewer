@@ -1,5 +1,53 @@
 # WORKLOG
 
+## 2026-05-05 — viewer hepatitis regex 對齊 vhyl（HCV / HBsAg / AntiHBs）
+
+- 作者：claude（與 YC 共同）
+- 範圍：report
+- 變更：修改
+- 檔案：`report.js`
+- 觸發：前一輪 catalog batch 修了 vhyl 的 HBsAg / AntiHCV / AFP / TSAT / Fe，
+  但 viewer 對 hepatitis 三項（HCV、HBsAg、Anti-HBs）是在 `report.js`
+  自家硬編 regex 處理（因為要同時呈現定性 + 數值，例如
+  「正常 (HBsAg 0.24)」），catalog 改動不會自動同步到這裡。使用者
+  回報 vhyl 病人 000151649A 在 viewer 仍空白。
+- 修改內容：
+  - `findHepatitis` HCV：定性 regex 改為
+    `/(?:HCV Ab|Anti-HCV)\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/`，
+    數值 regex 加入 `HCV Ab` alternation。
+  - `findHepatitis` HBsAg：定性 regex 改為
+    `/HBsAg\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/`，數值 regex 不變。
+  - `findAntiHBs` IIFE：定性 regex 改為 suffix-anchored
+    `/Anti-HBs\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/`，移除舊的
+    `if (/[\d.]/.test(qualRaw)) continue;` numeric filter（已被
+    `[^\s\d]\S*` capture class 取代）。
+  - 三處上方加 vhyl / vhtt 樣本註解。
+- 設計原則（同 catalog batch）：
+  - 定性 regex 用 `\((?:TT|YL)\)` 鎖 suffix，capture 必為定性詞，
+    不會誤抓黏連的滴度數字。
+  - `[^\s\d]\S*` 雙保險：第一個字元不能是空白或數字，未來新院區
+    suffix（例如 `(KH)`）若忘記加進 alternation 也不會誤抓數字行。
+- 測試樣本（黏連格式 end-to-end）：
+  - vhyl HBsAg：`HBsAg: 0.21HBsAg (YL): Non-Reactive (Non-Reactive)`
+    → 顯示「正常 (HBsAg 0.21)」
+  - vhyl AntiHCV：`Anti-HCV: 0.12Anti-HCV (YL): Non-Reactive (Non-Reactive)請判讀`
+    → 顯示「正常 (Anti-HCV 0.12)」
+  - vhyl AntiHBs：`Anti-HBs: <num>Anti-HBs (YL): <Reactive|Non-Reactive>`
+    → 顯示「有抗體 / 無抗體 (Anti-HBs <num>)」
+  - vhtt 既有樣本（`HBsAg(TT): Non-Reactive` 等）維持原狀，不退化。
+- 驗收：side-load 重打包 zip 後重 fetch 000151649A，HBsAg / Anti-HCV /
+  Anti-HBs 三項應改為正常顯示。
+- 跨 repo：無。本輪只動 viewer，catalog / reporter / patterns repo 不受影響。
+- 相依：不需 hospital-lab-patterns 先發版（這次不從 catalog 來）。
+- 架構債（下次處理）：
+  - viewer manifest 已把 HBsAg / AntiHBs / HCV 標 `pattern:null +
+    computed:'<id>'`，意圖是「定性顯示走 computed」，但 computed 函式
+    尚未實作，實際走 `report.js` 硬編。長期應該把 `findHepatitis` /
+    `findAntiHBs` 邏輯搬進 `patterns-computed.js`，讓 viewer / reporter
+    共用同一份。
+  - `findAntiHBs` 的 polarity 與 HBsAg / HCV 相反（Reactive = 有抗體
+    為正常），未來搬進 computed.js 時需要 polarity 參數化。
+
 ## 2026-05-05 — Sync vhyl 5 條 regex 放寬（HBsAg / AntiHCV / AFP / TSAT / Fe）
 
 - 作者：claude（與 YC 共同）
