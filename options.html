@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>設定 — 院內報告小幫手</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   "Microsoft JhengHei", "PingFang TC", sans-serif;
+      font-size: 13px;
+      background: #f0f4f8;
+      color: #1a202c;
+      width: 420px;
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a5276;
+      margin-bottom: 14px;
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 4px;
+    }
+    .field input {
+      width: 100%;
+      border: 1px solid #b0c4d8;
+      border-radius: 4px;
+      padding: 6px 9px;
+      font-size: 13px;
+      font-family: monospace;
+      outline: none;
+    }
+    .field input:focus {
+      border-color: #1a5276;
+      box-shadow: 0 0 0 2px rgba(26,82,118,.15);
+    }
+    .field .hint {
+      font-size: 11px;
+      color: #888;
+      margin-top: 3px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 16px;
+    }
+    button {
+      background: #1a5276;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 18px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:hover { background: #154360; }
+    button.btn-reset {
+      background: none;
+      color: #1a5276;
+      border: 1px solid #b0c4d8;
+    }
+    button.btn-reset:hover { background: #eaf2f8; }
+
+    #status {
+      font-size: 12px;
+      color: #1e8449;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>院內報告小幫手 — 設定</h1>
+
+  <div class="field">
+    <label for="base-url">API 伺服器網址</label>
+    <input type="text" id="base-url" placeholder="http://ernode.vghb12.vhtt.gov.tw:8000" />
+    <div class="hint">ernode API 基礎網址（不含路徑）</div>
+  </div>
+
+  <div class="field">
+    <label for="opsid">操作人員代號 (OPSID)</label>
+    <input type="text" id="opsid" placeholder="A123456789" />
+    <div class="hint">用於 API 查詢的操作人員識別碼</div>
+  </div>
+
+  <div class="field">
+    <label for="report-title">報告表頭</label>
+    <input type="text" id="report-title" placeholder="臺北榮民總醫院玉里分院門診報告" />
+    <div class="hint">列印報告的頁首標題</div>
+  </div>
+
+  <div class="actions">
+    <button id="save-btn">儲存</button>
+    <button id="reset-btn" class="btn-reset">還原預設</button>
+    <span id="status"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
