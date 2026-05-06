@@ -1,5 +1,17 @@
 # WORKLOG
 
+## 2026-05-07 — gitignore 加 .claude/
+
+- 作者：claude（與 YC 共同）
+- 範圍：sync-script（gitignore 一行）
+- 變更：修改
+- 檔案：`.gitignore`（加 `.claude/`）
+- 原因：本機 Claude Code 權限白名單一直以 untracked 浮現，與 sibling
+  `hospital-lab-patterns`（commit `e77b73c` 已忽略）和
+  `hospital-lab-reporter`（同日 commit `72f5c01` 已忽略）一致。
+- 測試：`git status` 不再列出 `.claude/`。
+- 相依：無。
+
 ## 2026-05-07 — 跨 repo 文件大整理（patterns repo 端）coordination 記錄
 
 - 作者：claude（與 YC 共同）
