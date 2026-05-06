@@ -1,5 +1,27 @@
 # WORKLOG
 
+## 2026-05-07 — 補齊 CLAUDE.md 檔案清單、新增 README.md
+
+- 作者：YC（Cowork）
+- 範圍：docs（CLAUDE.md / README.md，無程式碼變更）
+- 變更：修改 + 新增
+- 檔案：`CLAUDE.md`、`README.md`（新建）
+- 原因：
+  1. 原本 `CLAUDE.md` 的 Architecture 段缺三個檔（`pattern-loader.js`、
+     `normalizers.js`、`options.html/js`、`ckd_staging.svg/png`）—— 不利
+     新進對話的 Claude 快速理解 repo 結構。一併把 Reference 段補上院區
+     對照（vhyl 玉里 / vhtt 臺東）和 pattern-learning workflow 連結。
+  2. `mapping.js` 條目重新描述（catalog + viewer manifest + normalizers +
+     resolver bundle），對應目前 sync-patterns.js 產生的內容。
+  3. 肝炎條目改為「Phase 2 complete 2026-05-06」並指明走
+     `patterns-computed.js` dispatcher，呼應前一筆 WORKLOG。
+  4. 新增 `README.md`：給 GitHub 訪客看的 repo 概覽（用途、檔案配置、
+     pattern 來源、Quick start、Privacy 提示）。原本 repo 沒有 README，
+     在 GitHub 頁面顯示空白。
+- 測試：純文件變更，無需 reload extension。`git diff --stat` 確認只動
+  CLAUDE.md（+23 / -10）與新增 README.md。
+- 相依：無，patterns repo 不需發版。
+
 ## 2026-05-06 — EarlyCKD 非 CKD 時顯示「正常」(Phase B)
 
 - 作者：claude（與 YC 共同）
