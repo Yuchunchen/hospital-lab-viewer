@@ -1,25 +1,38 @@
 ## Hospital Lab Viewer
 
-Chrome extension that fetches lab and imaging orders from the hospital system (臺北榮民總醫院玉里分院) and generates printable patient reports for health education.
+<!-- 門診衛教單列印用 Chrome extension -->
+
+Chrome extension that fetches lab and imaging orders from the hospital system
+(臺北榮民總醫院玉里分院 vhyl / 臺東分院 vhtt) and generates printable patient
+reports for health education.
 
 ### Reference
-grab lab data from the following link
+
+<!-- ernode API 端點（院內網路才能存取） -->
+
+```
 http://ernode.vghb12.vhtt.gov.tw:8000/order/get_lab_orders?chartno=000x&opsid=A123456789
 http://ernode.vghb12.vhyl.gov.tw:8000/order/get_lab_orders?chartno=000xF&opsid=A123456789
+```
 
-let ai to learn more mapping pattern  by provide a link  contais new items
-
-
+Pattern learning workflow: see `hospital-lab-patterns/docs/learning-workflow.md`
+and `hospital-lab-patterns/docs/sop-cowork-guide.md` (SOP-CW2).
 
 ### Architecture
 
+<!-- 檔案清單與職責 -->
+
 - **popup.html / popup.js** — Extension popup UI. Search bar accepts chart numbers, displays lab and imaging orders in tables, and has a print button to generate reports.
 - **report.js** — Builds the printable HTML report. Generates A4 landscape pages with test results, text-report blocks, and reminders.
-- **mapping.js** — *AUTO-GENERATED*. `TEST_MAP` array defining all tracked lab tests with regex patterns, reference ranges, page/column placement, and display info. Source of truth lives in the sibling repo [`hospital-lab-patterns`](https://github.com/Yuchunchen/hospital-lab-patterns) (`patterns/viewer.js`). Refresh via `node sync-patterns.js` from this folder. Do NOT hand-edit `mapping.js` — changes will be overwritten on next sync.
-- **patterns-computed.js** — *AUTO-GENERATED*. Shared computed-value helpers (eGFR, URR, Ca×P, CKD/KDIGO staging, qualitative parsers). Synced from `hospital-lab-patterns/patterns/computed.js`. Available as `window.HOSPITAL_LAB_PATTERNS_COMPUTED`; current `report.js` keeps its own inline copies for now (Phase 2 will switch over).
-- **sync-patterns.js** — Run with `node sync-patterns.js` after any pattern change in the sibling repo.
+- **pattern-loader.js** — Runtime pattern fetch + cache logic. On popup open: tries `chrome.storage.local` cache (24h TTL) → fetches `dist/patterns.json` from GitHub → falls back to bundled `mapping.js`. Freshness badge: ✓ fresh · 📦 cached · ⚠ stale.
+- **mapping.js** — *AUTO-GENERATED*. Bundled catalog + viewer manifest + normalizers + resolver. Source of truth lives in [`hospital-lab-patterns`](https://github.com/Yuchunchen/hospital-lab-patterns). Refresh via `node sync-patterns.js`. Do NOT hand-edit.
+- **normalizers.js** — *AUTO-GENERATED*. Named transform functions (wbcCount, plateletCount). Synced from patterns repo.
+- **patterns-computed.js** — *AUTO-GENERATED*. Shared computed-value helpers (eGFR, URR, Ca×P, CKD/KDIGO staging, hepatitis display). Available as `window.HOSPITAL_LAB_PATTERNS_COMPUTED`. Report.js dispatches hepatitis rendering through these helpers (Phase 2 complete as of 2026-05-06).
+- **sync-patterns.js** — Run with `node sync-patterns.js` after any pattern change in the sibling repo. Regenerates mapping.js, normalizers.js, and patterns-computed.js.
+- **options.html / options.js** — Extension options page for configuring API server URL, OPSID, and other settings.
 - **report-viewer.html / report-viewer.js** — Standalone page that loads the generated report HTML from `chrome.storage.local` into an iframe for viewing/printing.
-- **manifest.json** — Chrome extension manifest.
+- **ckd_staging.svg / ckd_staging.png** — Visual reference diagram for CKD staging logic (GFR → CKD stage → KDIGO risk → Taiwan CKD → Early CKD class).
+- **manifest.json** — Chrome extension manifest (MV3).
 
 ### Key design decisions
 
@@ -43,7 +56,7 @@ let ai to learn more mapping pattern  by provide a link  contais new items
 - **Staging pairing logic**: KDIGO and Taiwan CKD pair eGFR with UACR/UPCR at the same date first; if not found, fall back to the nearest value within 3 months (90 days). Beyond 3 months → no pairing.
 - **UACR sub-page fetch**: UACR values may not appear in the main page reportText. If absent, popup.js fetches sub-pages from opdweb (derived from ernode base URL) for lab orders within 1 year, stopping after finding 3 UACR values.
 - **UPCR pattern**: Matches `RATTC:` label from the ernode API (in addition to UPCR/TP/Cr variants).
-- **Hepatitis section**: Col 4 肝炎 section with D-BIL, T-BIL (numeric, hi/lo thresholds), and HCV/HBsAg (qualitative: `HCV Ab(TT):` / `HBsAg(TT):` → Reactive=帶原, Non-Reactive=正常). HCV/HBsAg use `_tag` for color coding (warning=帶原, normal=正常). HCV/HBsAg show only the single most-recent result (not 3 timepoints) and are not limited to the 1-year lab window. Display format combines qualitative + numeric: "正常 (HBsAg 0.24)" / "帶原 (Anti-HCV 1.92)". Non-standard qualitative text (not Reactive/Non-Reactive) shown as-is.
+- **Hepatitis section** (Phase 2 complete 2026-05-06): Col 4 肝炎 section. HCV / HBsAgDisplay / AntiHBsDisplay are computed entries resolved via `patterns-computed.js` dispatcher — report.js no longer has hardcoded `findHepatitis()` / `findAntiHBs()`. Raw extract-only entries (HBsAg, HBsAgTiter, AntiHBs, AntiHBsTiter, AntiHCV, AntiHCVTiter) are in the viewer manifest without `page` so they get parsed but not rendered. Display format combines qualitative + numeric: "正常 (HBsAg 0.24)" / "帶原 (Anti-HCV 1.92)". Shows only single most-recent result, not limited to 1-year window.
 - **HIV報表 checkbox**: When checked, adds an HIV section to page 2, col 3 with: HIV virus load (3 timepoints, pattern `HIV virus load:`), CD4 (3 timepoints, pattern `LEU3AN:`), RPR (singleValue, all-time, computed: qualitative `REACT:` + titer `OTHER:`), TPHA (singleValue, all-time, computed: qualitative+numeric from `TPHA(TT)` lines). TEST_MAP entries with `hivOnly:true` are excluded from report unless the checkbox is checked. RPR/TPHA/HIV/CD4 orders are included in all-time filter alongside hepatitis.
 - **Gender filtering**: TEST_MAP entries with `gender:'M'` or `gender:'F'` are shown only for matching patients.
 
