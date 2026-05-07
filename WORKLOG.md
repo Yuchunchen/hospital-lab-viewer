@@ -1,5 +1,38 @@
 # WORKLOG
 
+## 2026-05-07 — incremental fetch（v4 cache，stable-frontier）
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup（loadData / 新 fetchIncremental / cache key v3→v4）
+- 變更：新增 + 修改
+- 檔案：`popup.js`
+- 原因：6h TTL 過期就 full re-fetch（5–15 個 API call / patient），但
+  signed-off 報告 immutable，95%+ 重抓的資料一模一樣。改用 stable-frontier
+  增量演算法：ernode 回傳 newest-first，逐頁掃 cached orders，遇到第
+  一頁 ALL ordseq 都 known + status 不變 → 之後頁也都不變 → STOP。
+  常見情況（無新醫囑）= 1 個 API call。具體變更：
+  - 新增 `fetchIncremental(chartno, cachedOrders, onProgress)`：用
+    `Map(ordseq → {idx,status})` 比對，新醫囑 prepend、status 變動的
+    in-place overwrite cached entry，allKnown 旗標決定是否提早收手。
+  - cache key `v3:` → `v4:`，payload 加 `allOrders`（未經 LAB/RAD 拆
+    分的 raw orders）。舊 v3 entry cache miss → graceful 跑一次 full
+    fetch 自動升級到 v4。
+  - `loadData()` 三條路徑：
+    - TTL 內 → 直接回 cache（零 API call）
+    - 過 TTL 且有 `allOrders` → `fetchIncremental` 後重跑
+      `enrichMissingValues`（sub-page text 仍走 IndexedDB enrichCache，
+      ordseq+status unchanged 的舊 order 保留 enriched reportText，
+      只有新醫囑 / status 變動的需要再 enrich）
+    - forceRefresh 或無 allOrders → 走原本的 `fetchAllOrders` 全頁
+- 測試：YC 在實機驗收 — (1) 新病人 first load 走 full fetch，console
+  應只有單次 fetchAllOrders；(2) 等 6h 過 TTL 後重開 popup → console
+  應印 `[incremental] xxxx: 1 page(s) checked, total N`，DevTools
+  Network 只有 1 個 ernode request；(3) ↻ 按鈕仍 force full fetch；
+  (4) 有「未執行」醫囑後來變「正式報告」的 case，increment 後該筆
+  reportText 應更新到新版。
+- 相依：本 repo 內部修改，**不需** patterns repo 改動。Reporter 端會在
+  下一個 commit 跟進。
+
 ## 2026-05-07 — 移除 viewer 12 個月 lab cutoff（Design Change 0）
 
 - 作者：claude（與 YC 共同）
