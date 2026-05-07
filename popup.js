@@ -7,8 +7,10 @@ const CONFIG = {
   REPORT_TITLE:    '',   // loaded from chrome.storage.sync
   ENDPOINT:        '/order/get_lab_orders',
   CACHE_TTL_MS:    6 * 60 * 60 * 1000,   // 6 hours
-  LAB_MONTHS_BACK: 12,                    // Lab: show last 1 year
-  // Imaging (RAD): show all — no cutoff
+  // LAB_MONTHS_BACK: reporter-only (its extractLabValues still uses 12-month cutoff).
+  // Viewer no longer filters by date — incremental cache stores all orders, and
+  // report.js MAX_HISTORY caps display to 3 most-recent values per test.
+  LAB_MONTHS_BACK: 12,
 };
 
 const CONFIG_DEFAULTS = {
@@ -90,13 +92,6 @@ function parseDateTaiwan(str) {
   const match = str.match(/^(\d+)\/(\d+)\/(\d+)/);
   if (!match) return null;
   return new Date(+match[1] + 1911, +match[2] - 1, +match[3]);
-}
-
-function cutoffDateLab() {
-  const d = new Date();
-  d.setMonth(d.getMonth() - CONFIG.LAB_MONTHS_BACK);
-  d.setHours(0, 0, 0, 0);
-  return d;
 }
 
 // ─── Patient Info Extraction ──────────────────────────────────────────────────
@@ -186,15 +181,6 @@ async function fetchAllOrders(chartno, onProgress) {
   }
 
   return { orders: all, total, patientInfo };
-}
-
-// ─── Lab Filter (1 year) ──────────────────────────────────────────────────────
-function filterLabRecent(orders) {
-  const cutoff = cutoffDateLab();
-  return orders.filter(o => {
-    const d = parseDateResdttm(o.resdttm) || parseDateTaiwan(o.orderDate);
-    return !d || d >= cutoff;  // keep if date unknown
-  });
 }
 
 // ─── IndexedDB Cache ──────────────────────────────────────────────────────────
@@ -417,28 +403,19 @@ async function loadData(rawInput, forceRefresh, onProgress) {
   }
 
   const { orders: all, total, patientInfo } = await fetchAllOrders(chartno, onProgress);
-  const labAll    = all.filter(o => o.ordType === 'LAB');
-  const labRecent = filterLabRecent(labAll);
-  const radAll    = all.filter(o => o.ordType === 'RAD');  // imaging: show all
-
-  // Include hepatitis + RPR/TPHA orders from ALL time (not limited to 1 year).
-  // HBsAg / Anti-HBs / Anti-HCV results are lifelong markers — once positive
-  // (or once vaccinated for Anti-HBs), they stay positive — so we surface the
-  // most recent value regardless of when it was tested.
-  const recentIds = new Set(labRecent.map(o => o.ordseq));
-  labAll.forEach(o => {
-    if (!recentIds.has(o.ordseq) && /HBsAg|HCV Ab|Anti-HBs|REACT:|TPHA|HIV virus load|LEU3AN/.test(o.reportText)) {
-      labRecent.push(o);
-    }
-  });
+  const labAll = all.filter(o => o.ordType === 'LAB');
+  const radAll = all.filter(o => o.ordType === 'RAD');
+  // No date cutoff — report.js MAX_HISTORY = 3 caps display per test.
+  // Rare/lifelong markers (hepatitis, HIV, RPR, TPHA) naturally surface their
+  // most-recent value without a special all-time bypass.
 
   // Sub-page enrichment: any manifest testId still missing → selectively
-  // fetch the "請 Click「正式報告」" sub-pages within cutoff (cache-first).
-  // Uses the runtime-resolved viewer manifest (TEST_MAP), so adding a new
-  // sub-page-only test now only requires a catalog/manifest change.
+  // fetch the "請 Click「正式報告」" sub-pages (cache-first). Uses the
+  // runtime-resolved viewer manifest (TEST_MAP), so adding a new sub-page-
+  // only test now only requires a catalog/manifest change.
   try {
     const manifest = (typeof window !== 'undefined' && window.TEST_MAP) || (typeof TEST_MAP !== 'undefined' ? TEST_MAP : []);
-    await enrichMissingValues(labRecent, chartno, manifest, { onProgress });
+    await enrichMissingValues(labAll, chartno, manifest, { onProgress });
   } catch (e) {
     if (typeof console !== 'undefined') console.warn('[enrichMissingValues] failed:', e);
   }
@@ -446,9 +423,9 @@ async function loadData(rawInput, forceRefresh, onProgress) {
   const payload = {
     chartno,
     patientInfo,
-    lab:          labRecent,
+    lab:          labAll,
     rad:          radAll,
-    recentCount:  labRecent.length + radAll.length,
+    recentCount:  labAll.length + radAll.length,
     totalFetched: total,
     fromCache:    false,
     fetchedAt:    new Date().toISOString(),
@@ -495,7 +472,7 @@ function renderSection(orders, title) {
   const hdr = el('div', 'section-title', title + `<span class="count">${orders.length}</span>`);
 
   if (!orders.length) {
-    const msg = isRad ? 'No imaging records found.' : 'No lab records in the past year.';
+    const msg = isRad ? 'No imaging records found.' : 'No lab records found.';
     section.append(hdr, el('div', 'empty', msg));
     return section;
   }
@@ -557,12 +534,12 @@ function renderResults(data, resultsEl) {
     const ts = new Date(data.fetchedAt).toLocaleString();
     meta.innerHTML =
       `<span class="fresh-badge">✓ Fresh</span> ${ts}` +
-      ` &nbsp; <span class="total-note">Total ${data.totalFetched} → ${data.recentCount} shown (Lab 1y / Imaging all)</span>` +
+      ` &nbsp; <span class="total-note">Total ${data.totalFetched} → ${data.recentCount} shown (Lab + Imaging: all)</span>` +
       ` &nbsp; ${printBtns}`;
   }
 
   const bar = el('div', 'chartno-display',
-    `Chart: <strong>${data.chartno}</strong> &nbsp; <span class="period">Lab: 1 year · Imaging: all</span>`);
+    `Chart: <strong>${data.chartno}</strong> &nbsp; <span class="period">Lab + Imaging: all</span>`);
 
   resultsEl.append(bar, meta);
   resultsEl.append(renderSection(data.lab, '🧪 Lab Orders'));

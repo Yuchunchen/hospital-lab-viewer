@@ -45,7 +45,7 @@ and `hospital-lab-patterns/docs/sop-cowork-guide.md` (SOP-CW2).
 - **Report font**: Verdana/Arial for non-Chinese characters, Microsoft JhengHei/PingFang TC for Chinese.
 - **Computed values**: eGFR is calculated from Creatinine via CKD-EPI 2021 formula (not reported by the hospital API directly). Free/Total PSA ratio is calculated when PSA > 4, with thresholds: >25% normal, 10-25% caution, <10% warning (marked with *).
 - **Regex patterns**: Lab values use patterns matching the actual labels from the ernode API. Patterns support multiple hospital label variants (e.g. `Glucose(AC-serum):` / `GLU:`, `Creatinine(serum):` / `CREAT:`, `r-GT:` / `RGT:`). CREAT/eGFR patterns match both `Creatinine(serum):` and `CREAT:` but NOT `Creatinine(24hrs Urine):`. WBC pattern uses a negative lookahead to reject urine-routine range values like `WBC: 0-5` (only matches single numeric values from blood CBC). WBC/Platelet have `normalize` functions to handle unit differences (e.g. WBC 6700 → 6.7 ×10³/µL). Hemoglobin matches both `Hb:` and `HGB:`. Glucose matches `Glucose(AC-serum):`, `GLU:`, `GLU-AC:`, `Sugar:`, `飯前血糖:` etc.
-- **Cache**: IndexedDB with 6-hour TTL. Lab orders filtered to last 12 months; imaging shows all.
+- **Cache**: IndexedDB with 6-hour TTL. Lab + imaging both store all orders (no date cutoff — `MAX_HISTORY = 3` in report.js caps display per test). Past TTL → incremental fetch (only pages with new/changed orders); ↻ button forces full refetch.
 - **Kidney disease staging**: In the 腎臟病分期 section (page 1, col 2), six computed entries display 3 time points like regular test blocks:
   - GFR stage (正常/CKD2–CKD5) — one per eGFR date
   - UACR stage (正常/A2/A3) — one per UACR date

@@ -1,5 +1,31 @@
 # WORKLOG
 
+## 2026-05-07 — 移除 viewer 12 個月 lab cutoff（Design Change 0）
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup（loadData / CONFIG）+ popup.html / manifest 文案
+- 變更：移除
+- 檔案：`popup.js`、`popup.html`、`manifest.json`、`CLAUDE.md`
+- 原因：incremental fetch 的前置作業 — incremental cache 會儲存 ALL
+  orders，再用 `MAX_HISTORY = 3`（report.js）caps 每個 test 的顯示筆數，
+  原本的 12 個月 cutoff 已沒必要。同時刪掉 hepatitis / RPR / TPHA / HIV
+  的 all-time 特殊 re-add block（labAll.forEach... HBsAg|HCV Ab|...）—
+  既然全部 lab 都進來，rare/lifelong markers 自然會被排序到最新 3 筆。
+  具體變更：
+  - 刪 `cutoffDateLab()`（原 ~95 行）、`filterLabRecent()`（原 ~192 行）
+  - `loadData()` 改用 `labAll`，刪 `recentIds` / `labAll.forEach(...)` 區塊
+  - `CONFIG.LAB_MONTHS_BACK` 保留但加註解標明 reporter-only（reporter
+    端 `extractLabValues()` 仍用自己的 12 個月 cutoff）
+  - UI 文案（popup.html sub-title、popup.js period/total-note、empty
+    message、manifest.json description）統一改成 "Lab + Imaging: all"
+- 測試：手動測待 YC 在實機（vhtt / vhyl）開 popup —
+  既有 chartno、有 hepatitis 老紀錄者、有 12 個月外的 lab 紀錄者各
+  一筆，確認 (1) 列印報表 hepatitis 仍顯示、(2) 12 個月外的 rare lab
+  也會 surface 為最新值、(3) 一般病人 page 1 渲染與先前一致
+  （MAX_HISTORY=3 限制下沒看到舊的擠掉新的）。
+- 相依：本 repo 內部修改，**不需** patterns repo 改動。後續會在同一
+  branch 再加 incremental fetch（v3→v4 cache key bump）。
+
 ## 2026-05-07 — findNearby 窗口 90 → 30 天（避免單筆 UACR 跨日配對）
 
 - 作者：claude（與 YC 共同）
