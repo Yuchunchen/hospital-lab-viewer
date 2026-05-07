@@ -198,9 +198,12 @@ function filterLabRecent(orders) {
 }
 
 // ─── IndexedDB Cache ──────────────────────────────────────────────────────────
-const DB_NAME = 'LabViewerCache';
-const DB_VER  = 3;
-const STORE   = 'records';
+// DB_VER bumped to 4 (2026-05-07): adds enrichCache store for sub-page text
+// keyed by ordapno — feeds the generic enrichMissingValues() pass.
+const DB_NAME      = 'LabViewerCache';
+const DB_VER       = 4;
+const STORE        = 'records';
+const ENRICH_STORE = 'enrichCache';
 let _db = null;
 
 function openDB() {
@@ -208,8 +211,11 @@ function openDB() {
   return new Promise((res, rej) => {
     const req = indexedDB.open(DB_NAME, DB_VER);
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE))
-        req.result.createObjectStore(STORE, { keyPath: 'key' });
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE, { keyPath: 'key' });
+      if (!db.objectStoreNames.contains(ENRICH_STORE))
+        db.createObjectStore(ENRICH_STORE, { keyPath: 'ordapno' });
     };
     req.onsuccess = () => { _db = req.result; res(_db); };
     req.onerror   = () => rej(req.error);
@@ -235,9 +241,43 @@ async function cachePut(key, payload) {
   });
 }
 
-// ─── Sub-page fetch for UACR ─────────────────────────────────────────────────
-// Derive opdweb URL from ernode base:
-//   http://ernode.vghb12.vhyl.gov.tw:8000 → http://opdweb.vghb12.vhyl.gov.tw
+// Enrichment cache — sub-page body text keyed by ordapno. Lab reports are
+// signed off and immutable, so no TTL.
+async function enrichCacheGet(ordapno) {
+  if (!ordapno) return null;
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction(ENRICH_STORE, 'readonly').objectStore(ENRICH_STORE).get(ordapno);
+    r.onsuccess = () => res(r.result ? r.result.text : null);
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+async function enrichCachePut(ordapno, text) {
+  if (!ordapno || !text) return;
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction(ENRICH_STORE, 'readwrite').objectStore(ENRICH_STORE)
+                .put({ ordapno: String(ordapno), text, ts: Date.now() });
+    r.onsuccess = () => res();
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+// ─── Sub-page fetch + generic enrichment ─────────────────────────────────────
+// Two-pass design (replaces old UACR-specific enrichUACRMulti, 2026-05-07):
+//   Pass 1 (caller's existing flow): extract values from order.reportText.
+//   Pass 2 (here): for testIds in the manifest that came back empty AND have
+//                  candidate "請 Click「正式報告」" orders within cutoff,
+//                  fetch each ordapno's sub-page, splice matched fragments
+//                  back into order.reportText so downstream extraction can
+//                  see them. Sub-page text is cached in IndexedDB by ordapno.
+//
+// Per-test sub-page fallback: when a sub-page renders the value under a
+// different label (e.g. Aluminum sub-page shows "Result: N" instead of the
+// main-page "Al鋁: N"), the catalog entry's `subpage` config drives an
+// orderName-gated translation that synthesises the main-page form.
+
 function getOpdwebBase() {
   try {
     const u = new URL(CONFIG.BASE_URL);
@@ -253,9 +293,6 @@ function buildSubpageUrl(ordapno, chartno) {
   return `${base}/QueryReport/OpdOrderReport.aspx?OrdApNo=${ordapno}&hisnum=${chartno}&opid=${CONFIG.OPSID}`;
 }
 
-// UACR regex — same as in mapping.js
-const UACR_RE = /(?:U-?ACR|UACR|Alb(?:umin)?\/Cr(?:eatinine)?|Urine\s*Alb\/Cr):\s*([\d.]+)/i;
-
 async function fetchSubpageText(url) {
   const resp = await fetch(url, { credentials: 'omit' });
   if (!resp.ok) return '';
@@ -264,33 +301,107 @@ async function fetchSubpageText(url) {
   return doc.body?.textContent || '';
 }
 
-// Check if UACR is already present in any order's reportText.
-// If not, fetch sub-pages (1-year LAB orders only) to find up to 3 values.
-async function enrichUACRMulti(labOrders, chartno, onProgress) {
-  const hasUACR = labOrders.some(o => UACR_RE.test(o.reportText));
-  if (hasUACR) return;
+// Splice into order.reportText whatever the sub-page reveals about the
+// missing tests. Returns true if anything was appended.
+function applySubpageText(order, subpageText, missingTests) {
+  if (!subpageText) return false;
+  const additions = [];
+  for (const t of missingTests) {
+    if (!t.pattern) continue;
+    // Phase A: sub-page already carries the main-page label.
+    const mMain = subpageText.match(t.pattern);
+    if (mMain && mMain[0]) {
+      additions.push(mMain[0]);
+      continue;
+    }
+    // Phase B: catalog `subpage` config — orderName-gated translation
+    // (e.g. Aluminum sub-page only has "Result: N", no "Al鋁:").
+    const sp = t.subpage;
+    if (!sp || !sp.resultPattern) continue;
+    if (sp.orderNameMatch && !sp.orderNameMatch.test(order.orderName || '')) continue;
+    const mSub = subpageText.match(sp.resultPattern);
+    if (mSub && mSub[1]) {
+      additions.push(`${sp.synthLabel || t.id}: ${String(mSub[1]).trim()}`);
+    }
+  }
+  if (!additions.length) return false;
+  order.reportText = (order.reportText ? order.reportText + ' ; ' : '')
+                   + additions.join(' ; ');
+  return true;
+}
 
-  const cutoff = cutoffDateLab();
-  const candidates = labOrders.filter(o => {
-    const d = parseDateResdttm(o.resdttm) || parseDateTaiwan(o.orderDate);
-    return d && d >= cutoff && o.ordapno;
-  });
+// Two-pass enrichment with per-test chase semantics:
+//   - Tests WITHOUT a `subpage` config (e.g. UACR) are chased only when the
+//     value is entirely missing from every order's reportText. Goal: surface
+//     a single most-recent value to the OPD handout.
+//   - Tests WITH a `subpage` config (e.g. Aluminum) are chased per-order,
+//     even when one main-page value already exists. Goal: pull historical
+//     "請 Click" entries that the dialysis case-management table needs.
+// For each candidate order we compute which subset of chase tests it could
+// plausibly carry; if none, we skip its sub-page fetch entirely.
+async function enrichMissingValues(labOrders, chartno, manifest, opts) {
+  opts = opts || {};
+  const onProgress = opts.onProgress;
+  const maxFetches = opts.maxFetches != null ? opts.maxFetches : 15;
 
-  let found = 0;
-  for (let i = 0; i < candidates.length && found < 3; i++) {
-    const order = candidates[i];
+  const tests = (manifest || []).filter(t => t && t.pattern instanceof RegExp);
+  if (!tests.length) return;
+
+  // Pass 1: which testIds appear at least once in any order's reportText?
+  const presentIds = new Set();
+  for (const o of labOrders) {
+    if (!o.reportText) continue;
+    for (const t of tests) {
+      if (presentIds.has(t.id)) continue;
+      if (t.pattern.test(o.reportText)) presentIds.add(t.id);
+    }
+  }
+
+  // Only chase tests that explicitly opt in via catalog `subpage.orderNameMatch`.
+  // Without an orderName signal we'd brute-fetch every "missing" within-cutoff
+  // order (verified to balloon — see reporter WORKLOG 2026-05-07). Tests opt
+  // in by adding subpage.orderNameMatch (and optionally subpage.resultPattern
+  // for sub-page label translation).
+  const chaseTests = tests.filter(t => t.subpage && t.subpage.orderNameMatch);
+  if (!chaseTests.length) return;
+
+  function relevantTestsForOrder(o) {
+    const out = [];
+    for (const t of chaseTests) {
+      if (t.pattern.test(o.reportText || '')) continue; // already on main page for this order
+      if (t.subpage.orderNameMatch.test(o.orderName || '')) out.push(t);
+    }
+    return out;
+  }
+
+  const queue = [];
+  for (const o of labOrders) {
+    if (!o.ordapno) continue;
+    const rel = relevantTestsForOrder(o);
+    if (rel.length) queue.push({ order: o, tests: rel });
+  }
+  if (!queue.length) return;
+
+  let fetched = 0;
+  for (let i = 0; i < queue.length && fetched < maxFetches; i++) {
+    const { order, tests: relTests } = queue[i];
     const url = buildSubpageUrl(order.ordapno, chartno);
     if (!url) continue;
-    if (onProgress) onProgress(`UACR 搜尋中 ${i + 1}/${candidates.length}（已找到 ${found}/3）`);
-    try {
-      const text = await fetchSubpageText(url);
-      const m = text.match(UACR_RE);
-      if (m) {
-        order.reportText = (order.reportText ? order.reportText + ' ; ' : '') +
-                           `UACR: ${m[1]}`;
-        found++;
-      }
-    } catch { /* skip */ }
+
+    let text = null;
+    try { text = await enrichCacheGet(order.ordapno); } catch (_) {}
+
+    if (!text) {
+      if (onProgress) onProgress(`補抓子頁面 ${fetched + 1}/${maxFetches}（candidate ${i + 1}/${queue.length}）`);
+      try {
+        text = await fetchSubpageText(url);
+        if (text) { try { await enrichCachePut(order.ordapno, text); } catch (_) {} }
+      } catch { continue; }
+      fetched++;
+    }
+    if (!text) continue;
+
+    applySubpageText(order, text, relTests);
   }
 }
 
@@ -321,8 +432,16 @@ async function loadData(rawInput, forceRefresh, onProgress) {
     }
   });
 
-  // Enrich UACR from sub-pages if not found in main page reportText
-  await enrichUACRMulti(labRecent, chartno, onProgress);
+  // Sub-page enrichment: any manifest testId still missing → selectively
+  // fetch the "請 Click「正式報告」" sub-pages within cutoff (cache-first).
+  // Uses the runtime-resolved viewer manifest (TEST_MAP), so adding a new
+  // sub-page-only test now only requires a catalog/manifest change.
+  try {
+    const manifest = (typeof window !== 'undefined' && window.TEST_MAP) || (typeof TEST_MAP !== 'undefined' ? TEST_MAP : []);
+    await enrichMissingValues(labRecent, chartno, manifest, { onProgress });
+  } catch (e) {
+    if (typeof console !== 'undefined') console.warn('[enrichMissingValues] failed:', e);
+  }
 
   const payload = {
     chartno,
