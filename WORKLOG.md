@@ -1,5 +1,20 @@
 # WORKLOG
 
+## 2026-05-07 — sync 拉新版 catalog（49 條 numeric capture 加 `[<>]?\s*`）
+
+- 作者：claude（與 YC 共同）
+- 範圍：manifest（sync 拉新版）— 本 repo 端無程式邏輯改動
+- 變更：自動產生
+- 檔案：`mapping.js`、`normalizers.js`、`patterns-computed.js`（皆 sync 重產）
+- 原因：patterns repo 同日把 49 條沒加 `[<>]?` 的 numeric capture group 全
+  改成 `([<>]?\s*[\d.]+)`，讓 `<0.01` / `<2` / `> N` 這類偵測下限值能
+  進 pipeline。viewer 的 `valueStyle()` 早就 strip `<>` 再 parseFloat
+  做 alarm，所以 viewer 端零調整只要 sync 拉新版即可。
+- 測試：spot-check `TSH: <0.01` 在新 catalog 拉到 `<0.01`，
+  `WBC: 0-5`（urine）仍 reject。實機驗收等病人開啟 popup 時透過
+  dist/patterns.json 24h 自動拿到。
+- 相依：patterns repo 同日 commit（catalog detection-limit regex）。
+
 ## 2026-05-07 — sync 拉新版 catalog（肝炎 6 條 regex 加 i flag）
 
 - 作者：claude（與 YC 共同）
