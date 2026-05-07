@@ -183,6 +183,57 @@ async function fetchAllOrders(chartno, onProgress) {
   return { orders: all, total, patientInfo };
 }
 
+// ─── Incremental Fetch (stable-frontier) ─────────────────────────────────────
+// ernode returns orders newest-first. Signed-off reports (正式報告/更正報告)
+// are immutable; only 未執行 orders can change (later get a report). So once
+// we hit a page where every order is known AND its status is unchanged, every
+// page beyond it is also unchanged — we can stop.
+//
+// Common case (no new orders): one API call.
+async function fetchIncremental(chartno, cachedOrders, onProgress) {
+  // Build lookup: ordseq → { idx, status }
+  const knownMap = new Map();
+  cachedOrders.forEach((o, i) => knownMap.set(o.ordseq, { idx: i, status: o.status }));
+
+  const newOrders = [];
+  let url = `${CONFIG.BASE_URL}${CONFIG.ENDPOINT}?chartno=${chartno}&opsid=${CONFIG.OPSID}`;
+  let page = 0, total = 0, patientInfo = null;
+
+  while (url) {
+    page++;
+    if (page > 50) break;
+
+    const resp = await fetch(url, { credentials: 'omit' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} — server error`);
+    const html = await resp.text();
+    const { orders, nextUrl, total: t, patientInfo: pi } = parseOrdersPage(html, chartno);
+    if (page === 1) { if (t) total = t; if (pi) patientInfo = pi; }
+
+    let allKnown = true;
+    for (const order of orders) {
+      const known = knownMap.get(order.ordseq);
+      if (!known) {
+        // Brand new order
+        newOrders.push(order);
+        allKnown = false;
+      } else if (known.status !== order.status) {
+        // Status changed (typically 未執行 → 正式報告) — overwrite cached entry.
+        cachedOrders[known.idx] = order;
+        allKnown = false;
+      }
+      // else: known + unchanged — stable hit
+    }
+
+    if (onProgress) onProgress(cachedOrders.length + newOrders.length, total || '?');
+    if (allKnown || !nextUrl) break;
+    url = nextUrl;
+  }
+
+  // newOrders are newer (came from earlier pages) → prepend to keep newest-first.
+  const merged = newOrders.concat(cachedOrders);
+  return { orders: merged, total, patientInfo, pagesChecked: page };
+}
+
 // ─── IndexedDB Cache ──────────────────────────────────────────────────────────
 // DB_VER bumped to 4 (2026-05-07): adds enrichCache store for sub-page text
 // keyed by ordapno — feeds the generic enrichMissingValues() pass.
@@ -391,17 +442,65 @@ async function enrichMissingValues(labOrders, chartno, manifest, opts) {
   }
 }
 
-// ─── Load (cache-first) ───────────────────────────────────────────────────────
+// ─── Load (cache-first + incremental) ────────────────────────────────────────
+// Cache key bumped v3 → v4 (2026-05-07): payload now stores raw `allOrders`
+// for incremental fetch. Old v3 entries are silently ignored → cache miss →
+// graceful one-time full fetch under v4.
 async function loadData(rawInput, forceRefresh, onProgress) {
   const chartno  = formatChartNo(rawInput);
-  const cacheKey = `v3:${chartno}`;
+  const cacheKey = `v4:${chartno}`;
 
   if (!forceRefresh) {
     const cached = await cacheGet(cacheKey);
-    if (cached && (Date.now() - cached.ts) < CONFIG.CACHE_TTL_MS)
-      return { ...cached.payload, fromCache: true, cachedAt: new Date(cached.ts) };
+    if (cached) {
+      const age = Date.now() - cached.ts;
+
+      // Within TTL → return directly, no API call.
+      if (age < CONFIG.CACHE_TTL_MS) {
+        return { ...cached.payload, fromCache: true, cachedAt: new Date(cached.ts) };
+      }
+
+      // Past TTL but we have raw orders → incremental fetch (1 page if nothing
+      // changed, more only when new/updated orders appear).
+      if (cached.payload.allOrders && cached.payload.allOrders.length > 0) {
+        // Clone so the stable-frontier mutation (status updates) works on a
+        // detached array — we'll rewrite the cache from the merged result.
+        const baseline = cached.payload.allOrders.map(o => ({ ...o }));
+        const { orders: merged, total, patientInfo, pagesChecked } =
+          await fetchIncremental(chartno, baseline, onProgress);
+
+        const labAll = merged.filter(o => o.ordType === 'LAB');
+        const radAll = merged.filter(o => o.ordType === 'RAD');
+
+        try {
+          const manifest = (typeof window !== 'undefined' && window.TEST_MAP) || (typeof TEST_MAP !== 'undefined' ? TEST_MAP : []);
+          await enrichMissingValues(labAll, chartno, manifest, { onProgress });
+        } catch (e) {
+          if (typeof console !== 'undefined') console.warn('[enrichMissingValues] failed:', e);
+        }
+
+        const payload = {
+          chartno,
+          patientInfo:  patientInfo || cached.payload.patientInfo,
+          lab:          labAll,
+          rad:          radAll,
+          allOrders:    merged,
+          recentCount:  labAll.length + radAll.length,
+          totalFetched: total || merged.length,
+          fromCache:    false,
+          fetchedAt:    new Date().toISOString(),
+          incremental:  { pagesChecked },
+        };
+        if (typeof console !== 'undefined') {
+          console.log(`[incremental] ${chartno}: ${pagesChecked} page(s) checked, total ${merged.length}`);
+        }
+        await cachePut(cacheKey, payload);
+        return { ...payload, cachedAt: null };
+      }
+    }
   }
 
+  // Full fetch — first-time load, forceRefresh, or no allOrders in cache.
   const { orders: all, total, patientInfo } = await fetchAllOrders(chartno, onProgress);
   const labAll = all.filter(o => o.ordType === 'LAB');
   const radAll = all.filter(o => o.ordType === 'RAD');
@@ -425,6 +524,7 @@ async function loadData(rawInput, forceRefresh, onProgress) {
     patientInfo,
     lab:          labAll,
     rad:          radAll,
+    allOrders:    all,
     recentCount:  labAll.length + radAll.length,
     totalFetched: total,
     fromCache:    false,
