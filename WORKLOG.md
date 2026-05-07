@@ -1,5 +1,21 @@
 # WORKLOG
 
+## 2026-05-07 — sync 拉新版 catalog（肝炎 6 條 regex 加 i flag）
+
+- 作者：claude（與 YC 共同）
+- 範圍：manifest（sync 拉新版）— 本 repo 端無程式邏輯改動
+- 變更：自動產生
+- 檔案：`mapping.js`、`normalizers.js`、`patterns-computed.js`（皆 sync 重產）
+- 原因：patterns repo 同日 catalog 6 條肝炎 regex（HBsAg / AntiHBs /
+  AntiHCV / HBsAgTiter / AntiHBsTiter / AntiHCVTiter）全加 i flag，
+  修 vhtt 全大寫 `ANTI-HCV` match 不到的 bug。本 repo 透過
+  `node sync-patterns.js` 拉新版進 mapping.js。
+- 測試：viewer 端肝炎透過 patterns-computed.js 的 `_hepatitisDisplay`
+  dispatcher（Phase 2 集中化），依賴 catalog 提供的 raw 定性 entries。
+  catalog regex 改用 i flag 後新格式 ANTI-HCV 應能進 raw entries 陣列，
+  HCV/HBsAgDisplay/AntiHBsDisplay computed 結果隨之正確顯示。
+- 相依：patterns repo 同日 commit（catalog hepatitis 6 條 i flag）。
+
 ## 2026-05-07 — enrichMissingValues 候選改成 strict subpage opt-in（避免 non-subpage brute-fetch）
 
 - 作者：claude（與 YC 共同）
