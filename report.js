@@ -257,22 +257,22 @@ function buildResultMap(orders, tests, patientInfo) {
     return m ? new Date(+m[1] + 1911, +m[2] - 1, +m[3]) : null;
   }
 
-  // Helper: find matching entry — same date first, then most recent within 3 months
+  // Helper: find matching entry — same date first, then most recent within 1 month
   function findNearby(entries, refDateStr) {
     if (!entries || !entries.length) return null;
     // 1. Exact same date
     const exact = entries.find(u => u.date === refDateStr);
     if (exact) return exact;
-    // 2. Most recent within 3 months (90 days)
+    // 2. Most recent within 1 month (30 days)
     const refDate = parseTwDate(refDateStr);
     if (!refDate) return null;
-    const THREE_MONTHS_MS = 90 * 24 * 60 * 60 * 1000;
+    const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
     let best = null, bestDiff = Infinity;
     entries.forEach(u => {
       const d = parseTwDate(u.date);
       if (!d) return;
       const diff = Math.abs(d - refDate);
-      if (diff <= THREE_MONTHS_MS && diff < bestDiff) {
+      if (diff <= ONE_MONTH_MS && diff < bestDiff) {
         best = u; bestDiff = diff;
       }
     });
@@ -286,7 +286,7 @@ function buildResultMap(orders, tests, patientInfo) {
     map['eGFR'].forEach(e => {
       const gStg = getGFRStage(parseFloat(e.value));
       if (!gStg) return;
-      // Match UACR at same date, or fall back to most recent within 3 months
+      // Match UACR at same date, or fall back to most recent within 1 month
       const uacrEntry = findNearby(map['UACR'], e.date);
       if (!uacrEntry) return;
       const aStg = getUACRStage(parseFloat(uacrEntry.value));
@@ -306,7 +306,7 @@ function buildResultMap(orders, tests, patientInfo) {
     map['EarlyCKD'] = [];
     map['eGFR'].forEach(e => {
       const egfr = parseFloat(e.value);
-      // Match UPCR/UACR at same date, or fall back to most recent within 3 months
+      // Match UPCR/UACR at same date, or fall back to most recent within 1 month
       const upcrEntry = findNearby(map['UPCR'], e.date);
       const upcr = upcrEntry ? parseFloat(upcrEntry.value) : null;
       const uacrEntry = findNearby(map['UACR'], e.date);
