@@ -1,5 +1,27 @@
 # WORKLOG
 
+## 2026-05-07 — findNearby 窗口 90 → 30 天（避免單筆 UACR 跨日配對）
+
+- 作者：claude（與 YC 共同）
+- 範圍：report（findNearby helper + KDIGO/TaiwanCKD/EarlyCKD 配對）
+- 變更：修改
+- 檔案：`report.js`、`CLAUDE.md`（staging pairing logic 描述同步更新）
+- 原因：`report.js` 的 `findNearby()` 用 `THREE_MONTHS_MS = 90 * 24 * 60 *
+  60 * 1000` 把 UACR / UPCR 配到同 patient 90 天內任一 eGFR 日期，導致
+  單筆 UACR 會被多個 eGFR 日期共用、在實際沒有 UACR 的日期顯示誤導
+  staging。實際 case 000115014H：UACR 57.20 在 115/02/13，eGFR 在
+  114/11/18（87 天前）也被配上 → KDIGO=「中」(錯)；115/02/13 的 eGFR
+  也是「中」(對)。改成 30 天窗口後只剩同日精準配對，前者不再產生
+  staging。改名 const `THREE_MONTHS_MS` → `ONE_MONTH_MS`，更新對照
+  comment（266 行）+ 兩處 caller comment（KDIGO + TaiwanCKD），CLAUDE.md
+  的 「3-month-nearest」描述也同步改 1-month 並補上 2026-05-07 緊縮的
+  reason 註記。
+- 測試：等 OPD 端用 chartno 000115014H 開 popup → 列印報表 → 114/11/18
+  eGFR 列 KDIGO 應變空白（無 UACR within 30 days）；115/02/13 eGFR 列
+  KDIGO 仍顯示「中」（exact match UACR=57.20）。
+- 相依：本 repo 內部修改，**不需** patterns repo 改動 — `findNearby` 是
+  report.js 自帶 helper，不在 catalog/manifest/computed 層。
+
 ## 2026-05-07 — sync 拉新版 catalog（49 條 numeric capture 加 `[<>]?\s*`）
 
 - 作者：claude（與 YC 共同）
