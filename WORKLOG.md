@@ -1,5 +1,71 @@
 # WORKLOG
 
+## 2026-05-07 — enrichMissingValues 候選改成 strict subpage opt-in（避免 non-subpage brute-fetch）
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup（enrichMissingValues 候選邏輯收緊）
+- 變更：修改
+- 檔案：`popup.js`、`mapping.js`（sync 拉新版 catalog）
+- 原因：reporter 端實測發現原邏輯 `chaseTests = tests.filter(t => t.subpage
+  || !presentIds.has(t.id))` 對 globally-missing 的 non-subpage test 會把
+  所有 within-cutoff order 推進 queue（實測 queue=132 一筆病人）。本 repo
+  雖然在 Chrome extension 環境 CORS 不會 blocked，但同樣 brute-fetch
+  浪費。改成 strict opt-in：`tests.filter(t => t.subpage &&
+  t.subpage.orderNameMatch)`。UACR 已在 patterns catalog 加
+  `subpage.orderNameMatch`（urine-related 廣 regex）保留功能。
+- 測試：viewer 端載入有 UACR 病人 → UACR 仍走 sub-page chase（catalog
+  opt-in 還在）；載入無 UACR 病人 → 不再 brute-fetch（pre-fix 行為是
+  fetch 1 年內所有 order trying to find UACR）。
+- 相依：patterns repo 同日 catalog 改動（Aluminum regex + UACR opt-in）。
+
+## 2026-05-07 — enrichMissingValues 改 per-test chase semantics（subpage tests bypass missing check + cutoff）
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup（enrichMissingValues 邏輯修正）
+- 變更：修改
+- 檔案：`popup.js`
+- 原因：reporter 端測同一份函式時發現對歷史值場景錯誤 — binary
+  missing 邏輯在 OPD 單值顯示沒事，但對歷史欄位會跳過所有 sub-page
+  chase。為了讓兩 repo 用同一份 enrichment 邏輯（差只在 cache backend
+  與 `buildSubpageUrl` 簽名），同步更新本 repo：
+  - 帶 `subpage` config 的 test 永遠 chase（per-order missing），
+    無 `subpage` config 的 test 維持原本 binary missing 行為（UACR）
+  - 候選清單改為 per-order `relevantTestsForOrder` 計算 — subpage-aware
+    test bypass 12-month cutoff，UACR-style 維持 cutoff
+- 測試：viewer 端 Aluminum 不在 manifest，本 repo 行為對 UACR 場景
+  與 v1 等價（regression-safe）。
+- 相依：—
+
+## 2026-05-07 — enrichUACRMulti 重構為通用 enrichMissingValues + IndexedDB enrichCache
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup（sub-page enrichment + 持久化 cache）+ manifest（sync 拉新版 catalog）
+- 變更：新增 / 修改 / 移除
+- 檔案：`popup.js`、`mapping.js`（sync 自動產生）、`patterns-computed.js`（sync 自動產生）
+- 原因：原本只有 UACR 一個 test 寫了 sub-page enrichment（test-centric，
+  每加一個 sub-page-only test 就要寫一個 enrichXxx），不可維護。改為
+  manifest-driven 通用機制：Pass 1 走原本流程抽值 → 算出 manifest 期望
+  testIds 中還缺值的 → 只對「請 Click」+ 在 cutoff 內 + 有 ordapno 的
+  order 做 selective sub-fetch（上限 maxFetches=15）。子頁面文字以
+  ordapno 為 key 持久化進 IndexedDB（DB_VER 3 → 4，新 store
+  `enrichCache`），重複載入同病人 0 sub-page request。
+  Catalog entry 可選擇性帶 `subpage:{ orderNameMatch, resultPattern,
+  synthLabel }` — 子頁面若沒主-page 標籤（如 Aluminum 子頁面只有
+  `Result: 4`），enrichment 會用 orderName 翻譯回 `Al鋁: 4` 注入
+  reportText，下游 regex 即可命中。Aluminum 已加進 patterns catalog 但
+  **沒有**加進 viewer manifest（per YC：門診衛教單不顯示血鋁），所以
+  本 repo 端目前 enrichment 仍只會被 UACR 觸發；機制本身已通用化，未來
+  若有需要把鋁拉進門診單，只需在 viewer.js 加一行 manifest entry 即可。
+- 測試：popup.js 重構後待 vhtt 桌機載入：
+  - 既有 UACR sub-page 行為（regression）
+  - 第二次載入同病人 → F12 Network 無 OpdOrderReport 請求
+  - DB_VER 升級不破壞既有快取（onupgradeneeded 加新 store 不動舊 store）
+- 相依：依賴 `hospital-lab-patterns` 同日的 catalog 更新（Aluminum +
+  schema `subpage` 欄位放行）— 已透過 `node sync-patterns.js` 拉進
+  `mapping.js`。`pattern-loader.js` 的 `__regex` reviver 是遞迴 reviver，
+  `subpage.resultPattern` / `subpage.orderNameMatch` 會自動 rehydrate
+  為 RegExp，無需另外處理。
+
 ## 2026-05-07 — gitignore 加 .claude/
 
 - 作者：claude（與 YC 共同）

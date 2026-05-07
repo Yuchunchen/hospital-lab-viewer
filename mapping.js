@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-05T21:50:53.537Z
+// Synced at: 2026-05-07T03:18:05.957Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -329,7 +329,14 @@ const CATALOG = [
     ref:'< 30 mg/g',
     refLo:null, refHi:30, hi:30, lo:null,
     meaning:'腎臟早期傷害指標',
-    notes:'Viewer fetches sub-pages from opdweb (1-year window) when UACR not in main reportText.' },
+    subpage: {
+      // Opt-in to enrichMissingValues sub-page chase. orderName signals
+      // that the order is a urine albumin/creatinine panel — broader than
+      // strict matching to handle vhyl/vhtt naming variants.
+      orderNameMatch: /U-?ACR|UACR|microalbumin|micro-?albumin|urine\s*alb|albumin\/cr|alb\/cr|尿.*白蛋白|微量白蛋白/i,
+      // No resultPattern: UACR sub-page already carries the main "UACR:" label.
+    },
+    notes:'Viewer fetches sub-pages from opdweb (1-year window) when UACR not in main reportText. Sub-page chase opt-in via subpage.orderNameMatch (broad urine regex).' },
 
   { id:'UPCR',
     pattern: /(?:U-?PCR|UPCR|RATTC|TP\/Cr|Pr(?:otein)?\/Cr(?:eatinine)?|Urine\s*TP\/Cr):\s*([\d.]+)/i,
@@ -481,6 +488,37 @@ const CATALOG = [
     ref:'3.1–20.5 ng/mL',
     refLo:3.1, refHi:20.5, hi:20.5, lo:3.1,
     notes:'Allows variable internal whitespace (some hospitals print "Folic  acid:" with double space).' },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // TRACE METALS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // vhtt 2026-05-07: 18-patient survey, 12 had Blood Aluminum results.
+  // Main page: "Al鋁: 6" / "Al鋁: <2" (below detection limit).
+  // Sub-page (OpdOrderReport.aspx): "Result: 4" — handled by enrichment via
+  // the `subpage` config (synthesises "Al鋁: N" back into reportText so the
+  // main pattern matches downstream).
+  { id:'Aluminum',
+    // vhtt 2026-05-07: in-house results use "Al鋁: N", but historical
+    // out-sourced results (代檢單位：新南海醫事檢驗所) label the value with
+    // the external lab code "BALR0101: N". Both formats live in the main
+    // reportText — sub-page enrichment isn't actually needed for any of
+    // the patients sampled so far. The `subpage` config below stays for
+    // defensive future-proofing (in case a sub-page-only sample appears).
+    pattern: /(?:Al鋁|BALR0101):\s*([<>]?\s*[\d.]+)/,
+    displayName:'鋁 (Aluminum)', shortLabel:'Al',
+    unit:'µg/L', category:'微量元素',
+    ref:'<20 µg/L',
+    refLo:null, refHi:20, hi:20, lo:null,
+    meaning:'鋁中毒監測（長期透析）',
+    subpage: {
+      // orderName variants observed: "Blood Aluminum", "Blood Aluminum(TT)",
+      // and (defensive) any Chinese-only name containing 鋁.
+      orderNameMatch: /Aluminum|鋁/i,
+      resultPattern:  /Result:\s*([<>]?\s*[\d.]+)/,
+      synthLabel:     'Al鋁',
+    },
+    notes:'Annual test. vhtt confirmed 2026-05-07 (18-patient survey, 12 with data). Main pattern matches both "Al鋁: N" (in-house) and "BALR0101: N" (out-sourced lab code). Capture allows leading <> operator (handles "<2" below detection limit — but extractLabValues currently parseFloats it, so "<2" is silently dropped; pre-existing limitation, not fixed in this task). Ref <20 µg/L per KDOQI guidelines.' },
 
   // ═══════════════════════════════════════════════════════════════════════
   // TUMOR MARKERS
@@ -897,5 +935,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-05T21:50:53.537Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-07T03:18:05.957Z";
 }
