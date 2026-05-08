@@ -1,5 +1,23 @@
 # WORKLOG
 
+## 2026-05-08 — sync 拉新版 catalog（FreePSA 移除 RATIO alternation）
+
+- 作者：claude（與 YC 共同）
+- 範圍：manifest（sync 拉新版）— 本 repo 端無程式邏輯改動
+- 變更：自動產生
+- 檔案：`mapping.js`、`normalizers.js`、`patterns-computed.js`（皆 sync
+  重產）
+- 原因：patterns repo 同日修 FreePSA regex — 移除 `RATIO` alternation
+  避免 vhtt `Free PSA(TT)` 報告（只輸出 `RATIO: 0.152` 比值、不輸出
+  絕對濃度）被誤抓成 FreePSA 濃度。viewer 端的 PSARatio 顯示由
+  `patterns-computed.js` 的 `PSARatio` 函式驅動（`PSA == null ||
+  FreePSA == null` 直接 return null），所以 vhtt 病人從此不會看到
+  錯誤的 PSARatio；其他院區若有真的 Free PSA 數值仍正常顯示。
+- 測試：YC 在 vhtt 病人 000017679E / 000043524F 開 popup 列印報表，
+  原本 PSARatio 段被誤觸發顯示「警示」字樣，sync 後該段應變空白
+  （PSA > 4 才算的，這兩位 PSA<1，本來就不該觸發 — 修完更乾淨）。
+- 相依：patterns repo 同日 commit（catalog FreePSA pattern 修正）。
+
 ## 2026-05-07 — incremental fetch（v4 cache，stable-frontier）
 
 - 作者：claude（與 YC 共同）

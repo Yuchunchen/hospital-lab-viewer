@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-07T04:46:17.155Z
+// Synced at: 2026-05-08T06:46:21.576Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -56,6 +56,14 @@ function URR({ bun_pre, bun_post }) {
 function CaP({ Ca, P }) {
   if (Ca == null || P == null) return null;
   return +(Ca * P).toFixed(1);
+}
+
+// ─── UIBC (Unsaturated Iron Binding Capacity) ───────────────────────────
+//   UIBC = TIBC − Fe
+function UIBC({ TIBC, Fe }) {
+  if (TIBC == null || Fe == null) return null;
+  const v = TIBC - Fe;
+  return v >= 0 ? +v.toFixed(1) : null;
 }
 
 // ─── PSA Free/Total ratio (only meaningful when PSA > 4) ─────────────────
@@ -220,6 +228,10 @@ const COMPUTATIONS = [
     compute: ({ Ca, P }) => CaP({ Ca, P }),
     meta:{ unit:'', ref:'< 55', hi:55 } },
 
+  { id:'UIBC',       needs:['TIBC', 'Fe'],
+    compute: ({ TIBC, Fe }) => UIBC({ TIBC, Fe }),
+    meta:{ unit:'µg/dL', ref:'110–370 µg/dL', lo:110, hi:370 } },
+
   { id:'PSARatio',   needs:['PSA', 'FreePSA'],
     compute: ({ PSA, FreePSA }) => PSARatio({ PSA, FreePSA }),
     meta:{ unit:'%', ref:'>25 normal, 10-25 caution, <10 warning' } },
@@ -255,7 +267,7 @@ const COMPUTATIONS = [
 // Pure helpers (also exported for direct use)
 const HELPERS = {
   eGFR_CKDEPI_2021,
-  URR, CaP, PSARatio,
+  URR, CaP, UIBC, PSARatio,
   GFRStage, UACRStage, UPCRStage,
   KDIGORisk, TaiwanCKD, EarlyCKD,
   qualitativeFromText,

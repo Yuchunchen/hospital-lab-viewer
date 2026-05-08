@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-07T04:46:17.142Z
+// Synced at: 2026-05-08T06:46:21.567Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -339,12 +339,16 @@ const CATALOG = [
     notes:'Viewer fetches sub-pages from opdweb (1-year window) when UACR not in main reportText. Sub-page chase opt-in via subpage.orderNameMatch (broad urine regex).' },
 
   { id:'UPCR',
-    pattern: /(?:U-?PCR|UPCR|RATTC|TP\/Cr|Pr(?:otein)?\/Cr(?:eatinine)?|Urine\s*TP\/Cr):\s*([<>]?\s*[\d.]+)/i,
+    // T.PROT/CREAT alternation added 2026-05-08 (Phase 3 CKD): vhtt's
+    // Urine total protein(TT) inline reportText uses "T.PROT/CREAT: <值>"
+    // (verified across 45+ vhtt patients); RATTC was vhyl-only / legacy.
+    // The optional period in T\.? handles both `T.PROT/CREAT` and `TPROT/CREAT`.
+    pattern: /(?:U-?PCR|UPCR|RATTC|T\.?PROT\/CREAT|TP\/Cr|Pr(?:otein)?\/Cr(?:eatinine)?|Urine\s*TP\/Cr):\s*([<>]?\s*[\d.]+)/i,
     displayName:'尿蛋白／肌酸酐比 (UPCR)', shortLabel:'UPCR',
     unit:'mg/g', category:'腎功能',
     ref:'< 150 mg/g',
     refLo:null, refHi:150, hi:150, lo:null,
-    notes:'RATTC label is also used at some sites for total-protein/creatinine ratio.' },
+    notes:'RATTC = vhyl/legacy; T.PROT/CREAT = vhtt (Urine total protein inline). Both produce the same numeric ratio.' },
 
   // ═══════════════════════════════════════════════════════════════════════
   // KIDNEY DISEASE STAGING (computed)
@@ -452,6 +456,13 @@ const CATALOG = [
     ref:'20–45 %',
     refLo:20, refHi:45, hi:45, lo:20 },
 
+  { id:'UIBC', computed:'UIBC', pattern:null,
+    displayName:'不飽和鐵結合力 (UIBC)', shortLabel:'UIBC',
+    unit:'µg/dL', category:'鐵代謝',
+    ref:'110–370 µg/dL',
+    refLo:110, refHi:370, lo:110, hi:370,
+    notes:'Computed: TIBC − Fe. ernode does not report UIBC directly.' },
+
   { id:'Ferritin',
     pattern: /(?:Ferritin|FERRITIN):\s*([<>]?\s*[\d.]+)/i,
     displayName:'鐵蛋白 (Ferritin)', shortLabel:'Ferritin',
@@ -555,7 +566,16 @@ const CATALOG = [
     gender:'M' },
 
   { id:'FreePSA',
-    pattern: /(?:Free PSA|RATIO):\s*([<>]?\s*[\d.]+)/,
+    // 2026-05-08: removed `|RATIO` alternation. vhtt Free PSA(TT) reports
+    // only emit `RATIO: 0.152` (the Free/Total fraction, not the ng/mL
+    // concentration); the alternation was capturing that ratio as a
+    // FreePSA value. Verified bad cases: vhtt 000017679E (PSA 0.631,
+    // RATIO 0.152 → FreePSA was being stored as 0.152) and 000043524F
+    // (PSA 0.113, RATIO 0.093). With this change, vhtt reports correctly
+    // leave FreePSA null; PSARatio computed entry then doesn't fire,
+    // which matches what those reports actually convey. Other sites that
+    // emit "Free PSA: N" verbatim are unaffected.
+    pattern: /Free PSA:\s*([<>]?\s*[\d.]+)/,
     displayName:'游離 PSA (Free PSA)', shortLabel:'Free PSA',
     unit:'ng/mL', category:'癌症指數',
     gender:'M' },
@@ -709,6 +729,52 @@ const CATALOG = [
     pattern: /LEU3AN:\s*([<>]?\s*[\d.]+)/,
     displayName:'CD4 淋巴球 (LEU3AN)', shortLabel:'CD4',
     category:'HIV' },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // URINE — qualitative + quantitative (Phase 3 Early CKD, 2026-05-08)
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHEM EXAM(TT) reportText comes in two formats verified across 84 vhtt
+  // CKD patients:
+  //   Format A (long): "Bilirubin: -  Glucose: -  Ketone: -  OB: -  ..."
+  //   Format B (short+ref): "BILI: - (-)  GLU: - (-)  KETO: - (-)  OCCL: 1+ (-) ..."
+  // The patterns below accept both labels (long + short) and the reference
+  // suffix in format B. Capture stops before whitespace so " (-)" is dropped.
+  // Catalog only captures the raw qualitative string ('-', '+/-', '1+', '4+',
+  // '++', etc.); export-formats/renal-platform-xlsx.js normalises it to
+  // bracket notation ([-], [+], [++], ...).
+
+  { id:'UrineOB',
+    pattern: /(?:\bOB|\bOCCL):\s*([+\-]+(?:\/[+\-])?|\d+\+)/,
+    displayName:'尿潛血 (Occult Blood)', shortLabel:'尿OB',
+    category:'尿液', qualitative:true,
+    orderNameFilter: /CHEM\s*EXAM|尿液|Urine\s*protein/i,
+    notes:'Two label formats: long "OB: -" (vhyl/older) and short "OCCL: 1+ (-)" (vhtt/newer). Capture stops before whitespace so the reference range is dropped.' },
+
+  { id:'UrineGlucose',
+    pattern: /(?:\bGlucose|\bGLU):\s*([+\-]+(?:\/[+\-])?|\d+\+)/,
+    displayName:'尿糖 (Urine Glucose)', shortLabel:'尿糖',
+    category:'尿液', qualitative:true,
+    orderNameFilter: /CHEM\s*EXAM|尿液|Urine\s*protein/i,
+    notes:'orderNameFilter required to distinguish from serum GluAC; long "Glucose: -" / short "GLU: 4+ (-)". Same capture rule as UrineOB.' },
+
+  { id:'UrineCr',
+    pattern: /Creatinine\s*\((?:24hrs?\s*)?Urine\):\s*([<>]?\s*[\d.]+)/i,
+    displayName:'尿肌酸酐 (Urine Creatinine)', shortLabel:'尿Cr',
+    unit:'mg/dL', category:'尿液',
+    notes:'From Urine Microalbumin(TT)+Creatinine(TT) inline. Distinct label from serum CREAT — does not match Creatinine(serum):.' },
+
+  { id:'UrineProtein',
+    pattern: /尿蛋白\s+([<>]?\s*[\d.]+)\s*mg\/dL/i,
+    displayName:'尿蛋白定量 (Urine Total Protein)', shortLabel:'尿蛋白',
+    unit:'mg/dL', category:'尿液',
+    subpage: {
+      // Inline reportText only carries UPCR (T.PROT/CREAT); the actual
+      // protein concentration in mg/dL lives behind the opdweb sub-page.
+      orderNameMatch: /Urine\s*total\s*protein|尿蛋白定量/i,
+      // No resultPattern: sub-page already prints "尿蛋白 <值> mg/dL" so
+      // the main pattern matches it directly after enrichment.
+    },
+    notes:'Random urine protein concentration. Inline reportText only has UPCR; mg/dL value requires sub-page enrichment via opdweb OpdOrderReport.aspx.' },
 
   // ═══════════════════════════════════════════════════════════════════════
   // IMAGING / TEXT-BLOCK ENTRIES (page 2 of viewer — fillable text forms)
@@ -935,5 +1001,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-07T04:46:17.142Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-08T06:46:21.567Z";
 }
