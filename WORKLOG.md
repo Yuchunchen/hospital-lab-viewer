@@ -1,5 +1,23 @@
 # WORKLOG
 
+## 2026-05-08 — sync 拉新版 catalog（GluAC 收緊 bare-Glucose）
+
+- 作者：claude（與 YC 共同）
+- 範圍：manifest（sync 拉新版）— 本 repo 端無程式邏輯改動
+- 變更：自動產生
+- 檔案：`mapping.js`、`normalizers.js`、`patterns-computed.js`（皆 sync
+  重產）
+- 原因：patterns repo 同日修 GluAC regex — 把 bare `Glucose:` alternation
+  改成必須帶括號（`Glucose(AC-serum):` / `Glucose(serum):` 才匹配）。
+  原 pattern 會被 CHEM EXAM(TT) 尿液例行報告的 `Glucose: 4+` 命中、把
+  `4` 當成空腹血糖 mg/dL。Viewer 報表 page 1 col 1 的「血糖」欄會直接
+  受惠 — 從此 vhtt 同日有尿液常規 + 真血糖的病人，不會把尿糖 `4+` 誤
+  顯示為血糖 4。
+- 測試：YC 在 vhtt 000026353G 115/02/26 開 popup 列印報表，原本血糖欄
+  位顯示 `4`（且被 alarm 為 ↓），sync 後該日期該欄位應改顯示真實血糖
+  （或空白若該日無血清 AC sugar）。
+- 相依：patterns repo 同日 commit（catalog GluAC pattern 收緊）。
+
 ## 2026-05-08 — sync 拉新版 catalog（FreePSA 移除 RATIO alternation）
 
 - 作者：claude（與 YC 共同）

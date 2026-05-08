@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-08T06:46:21.576Z
+// Synced at: 2026-05-08T06:54:12.923Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 

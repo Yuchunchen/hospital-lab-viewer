@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-08T06:46:21.567Z
+// Synced at: 2026-05-08T06:54:12.915Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -241,12 +241,21 @@ const CATALOG = [
   // ═══════════════════════════════════════════════════════════════════════
 
   { id:'GluAC',
-    pattern: /(?:Glucose(?:\([^)]*\))?|GLU[\s-]*(?:AC)?|Sugar(?:\([^)]*\))?|AC[\s-]*Sugar|飯前血糖):\s*([<>]?\s*[\d.]+)/i,
+    // 2026-05-08: bare-Glucose alternation tightened to require the
+    // parenthetical site qualifier (Glucose(AC-serum), Glucose(serum), ...).
+    // The previous pattern's optional `\([^)]*\)?` was matching urine-routine
+    // lines like "Glucose: 4+" inside CHEM EXAM(TT) reports — the [\d.]+
+    // capture grabbed the leading 4 of "4+", storing GluAC = 4 mg/dL.
+    // Verified bad case: vhtt 000026353G 115/02/26 (urine Glucose: 4+, but
+    // serum AC sugar that day was 80). The new alternation only matches
+    // Glucose when followed by `(...)`, so urine Glucose: 4+ is rejected.
+    // Other label forms (GLU / GLU-AC / Sugar / 飯前血糖) are unaffected.
+    pattern: /(?:Glucose\([^)]*\)|GLU[\s-]*(?:AC)?|Sugar(?:\([^)]*\))?|AC[\s-]*Sugar|飯前血糖):\s*([<>]?\s*[\d.]+)/i,
     displayName:'空腹血糖 (AC Sugar)', shortLabel:'空腹血糖',
     unit:'mg/dL', category:'血糖',
     ref:'74–100 mg/dL',
     refLo:74, refHi:100, hi:100, lo:74,
-    notes:'Matches Glucose(...), GLU, GLU-AC, Sugar(...), AC Sugar, 飯前血糖 — many hospital label variants.' },
+    notes:'Matches Glucose(<site>), GLU, GLU-AC, Sugar(<site>), AC Sugar, 飯前血糖. Bare "Glucose:" intentionally NOT matched — urine routine Glucose: 4+ would otherwise capture "4" as a serum mg/dL value.' },
 
   { id:'HbA1c',
     pattern: /HBA[I1]C%?:\s*([<>]?\s*[\d.]+)/i,
@@ -1001,5 +1010,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-08T06:46:21.567Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-08T06:54:12.915Z";
 }
