@@ -1,5 +1,18 @@
 # WORKLOG
 
+## 2026-05-12 — sync 拉新版 catalog(RBC + GluAC negative lookahead)
+
+- 作者:claude(與 YC 共同,在 vhyl 動手)
+- 範圍:manifest(sync 拉新版)— 本 repo 端無程式邏輯改動
+- 變更:自動產生
+- 檔案:`mapping.js`、`normalizers.js`、`patterns-computed.js`(皆 sync 重生)
+- 原因:patterns repo 同日修 RBC + GluAC regex,加 negative lookahead 擋
+  vhyl URINE ROUTINE(YL) 的 `RBC: 0-2`(range)和 `GLU: 4+`(gradient)誤匹配。
+  詳見 patterns WORKLOG 2026-05-12 entry。
+- 測試:viewer popup pattern-loader 走 GitHub raw `dist/patterns.json`,
+  24h cache。OPD 端無需 redeploy zip — freshness badge 點一下即可強制刷新。
+- 相依:patterns repo 同日 commit。
+
 ## 2026-05-08 — sync 拉新版 catalog（GluAC 收緊 bare-Glucose）
 
 - 作者：claude（與 YC 共同）
