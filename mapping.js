@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-08T06:54:12.915Z
+// Synced at: 2026-05-12T01:14:36.068Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -88,13 +88,14 @@ const CATALOG = [
     notes:'Negative lookahead in pattern rejects urine routine "WBC: 0-5". Normalize handles /µL (e.g. 6700) → ×10³/µL (6.7).' },
 
   { id:'RBC',
-    pattern: /\bRBC:\s*([<>]?\s*[\d.]+)/,
+    pattern: /\bRBC:\s*([<>]?\s*[\d.]+)(?!\s*[-–]\s*\d)/,
     displayName:'紅血球 (RBC)', shortLabel:'RBC',
     unit:'×10⁶/µL', category:'血液',
     ref:'男 4.2–6.2，女 3.7–5.5 ×10⁶/µL',
     refLo:3.7, refHi:6.2,
     loM:4.2, hiM:6.2, loF:3.7, hiF:5.5,
-    lo:3.7, hi:6.2 },
+    lo:3.7, hi:6.2,
+    notes:'Negative lookahead rejects urine routine "RBC: 0-2/HPF" ranges (2026-05-12, parallel to WBC). vhyl 000012148C surfaced URINE ROUTINE(YL) "RBC: 0-2" being captured as blood RBC=0.' },
 
   { id:'Hb',
     pattern: /(?:Hb|HGB):\s*([<>]?\s*[\d.]+)/,
@@ -250,12 +251,12 @@ const CATALOG = [
     // serum AC sugar that day was 80). The new alternation only matches
     // Glucose when followed by `(...)`, so urine Glucose: 4+ is rejected.
     // Other label forms (GLU / GLU-AC / Sugar / 飯前血糖) are unaffected.
-    pattern: /(?:Glucose\([^)]*\)|GLU[\s-]*(?:AC)?|Sugar(?:\([^)]*\))?|AC[\s-]*Sugar|飯前血糖):\s*([<>]?\s*[\d.]+)/i,
+    pattern: /(?:Glucose\([^)]*\)|GLU[\s-]*(?:AC)?|Sugar(?:\([^)]*\))?|AC[\s-]*Sugar|飯前血糖):\s*([<>]?\s*[\d.]+)(?!\s*\+)/i,
     displayName:'空腹血糖 (AC Sugar)', shortLabel:'空腹血糖',
     unit:'mg/dL', category:'血糖',
     ref:'74–100 mg/dL',
     refLo:74, refHi:100, hi:100, lo:74,
-    notes:'Matches Glucose(<site>), GLU, GLU-AC, Sugar(<site>), AC Sugar, 飯前血糖. Bare "Glucose:" intentionally NOT matched — urine routine Glucose: 4+ would otherwise capture "4" as a serum mg/dL value.' },
+    notes:'Matches Glucose(<site>), GLU, GLU-AC, Sugar(<site>), AC Sugar, 飯前血糖. Bare "Glucose:" intentionally NOT matched — urine routine Glucose: 4+ would otherwise capture "4" as a serum mg/dL value. 2026-05-12: also reject `+`-qualified gradient values (vhyl URINE ROUTINE(YL) GLU: 4+ was capturing 4).' },
 
   { id:'HbA1c',
     pattern: /HBA[I1]C%?:\s*([<>]?\s*[\d.]+)/i,
@@ -1010,5 +1011,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-08T06:54:12.915Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-12T01:14:36.068Z";
 }
