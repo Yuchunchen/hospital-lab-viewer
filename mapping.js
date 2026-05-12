@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-12T01:14:36.068Z
+// Synced at: 2026-05-12T14:07:47.794Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -585,7 +585,13 @@ const CATALOG = [
     // leave FreePSA null; PSARatio computed entry then doesn't fire,
     // which matches what those reports actually convey. Other sites that
     // emit "Free PSA: N" verbatim are unaffected.
-    pattern: /Free PSA:\s*([<>]?\s*[\d.]+)/,
+    // 2026-05-12: vhyl `Free PSA(YL)` 報告輸出 `FREE PSA/PSA RATIO: 0.097`
+    // (該值為 Free PSA 絕對濃度 ng/mL，非比值；經 vhyl/000025318J 確認
+    // PSA=0.395, FreePSA=0.097 → ratio 24.6% 屬正常範圍)。加 alternation
+    // 涵蓋此 label 樣式。注意 2026-05-08 對 vhtt `RATIO:` 樣式的解讀
+    // 是否誤判另以 TASK_BRIEF 帶回 vhtt 評估（涉及歷史 vhtt case 重新檢視，
+    // 不在本次 vhyl minor revision 範圍內）。
+    pattern: /(?:Free PSA|FREE PSA\/PSA RATIO):\s*([<>]?\s*[\d.]+)/,
     displayName:'游離 PSA (Free PSA)', shortLabel:'Free PSA',
     unit:'ng/mL', category:'癌症指數',
     gender:'M' },
@@ -1011,5 +1017,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-12T01:14:36.068Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-12T14:07:47.794Z";
 }
