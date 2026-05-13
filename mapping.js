@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-13T11:28:33.960Z
+// Synced at: 2026-05-13T12:05:40.578Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -586,6 +586,7 @@ const CATALOG = [
     //   vhyl: `FREE PSA/PSA RATIO: 0.097`  ← Free PSA(YL)
     //   通用: `Free PSA: N`                ← 其他院區（若有）
     pattern: /(?:Free PSA|FREE PSA\/PSA RATIO|RATIO):\s*([<>]?\s*[\d.]+)/,
+    orderNameFilter: /Free\s*PSA/i,
     displayName:'游離 PSA (Free PSA)', shortLabel:'Free PSA',
     unit:'ng/mL', category:'癌症指數',
     gender:'M' },
@@ -1011,5 +1012,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-13T11:28:33.960Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-13T12:05:40.578Z";
 }
