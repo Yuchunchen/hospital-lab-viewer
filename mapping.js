@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-13T12:05:40.578Z
+// Synced at: 2026-05-13T13:23:07.188Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -333,7 +333,12 @@ const CATALOG = [
     notes:'Computed from Creatinine via CKD-EPI 2021 (race-free). Pattern shares Creatinine capture so the same regex works.' },
 
   { id:'UACR',
-    pattern: /(?:U-?ACR|UACR|Alb(?:umin)?\/Cr(?:eatinine)?|Urine\s*Alb\/Cr):\s*([<>]?\s*[\d.]+)/i,
+    // `RATIO` alternation 補抓 vhtt 110 年中以前舊格式 Urine Microalbumin
+    // 報告（label `RATIO: N` 而非新格式 `ALB/CR: N`）。`RATIO:` 也出現在
+    // Free PSA 報告，故必須以 `orderNameFilter` 限制在 microalbumin order
+    // 內才匹配（FreePSA 那邊也已有對稱的 orderNameFilter）。
+    pattern: /(?:U-?ACR|UACR|Alb(?:umin)?\/Cr(?:eatinine)?|Urine\s*Alb\/Cr|RATIO):\s*([<>]?\s*[\d.]+)/i,
+    orderNameFilter: /microalbumin/i,
     displayName:'尿白蛋白／肌酸酐比 (UACR)', shortLabel:'UACR',
     unit:'mg/g', category:'腎功能',
     ref:'< 30 mg/g',
@@ -1012,5 +1017,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-13T12:05:40.578Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-13T13:23:07.188Z";
 }
