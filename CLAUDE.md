@@ -113,7 +113,7 @@ sync-patterns.js 自動產生** — 不要手改。
 
 - 不要手改 `mapping.js`、`normalizers.js`、`patterns-computed.js`
   （皆由 sync 產生）
-- 不要自動 `git push`
+- commit 後自動 `git push`；破壞性改動才先問
 - 不要刪除 WORKLOG.md 既有條目
 - 不要打包 `node_modules/` 或 `examples/`（皆已 gitignore）
 - 不要把真實病人 HTML / JSON / 圖片 commit 進去
