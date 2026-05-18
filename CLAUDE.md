@@ -109,6 +109,16 @@ sync-patterns.js 自動產生** — 不要手改。
 - PowerShell：`Get-Date -Format yyyy-MM-dd`
 - bash：`date +%Y-%m-%d`
 
+### Coding behavior contract（Cowork + Claude Code 寫程式時皆適用）
+
+> 三個 repo CLAUDE.md 共用同一份;改動請同步 patterns/viewer/reporter。Cowork 端思考規則見 `hospital-lab-patterns/docs/cowork-project-instructions.md` § 思考規則。
+
+- **A. 外科手術式修改**:只改必須改的;不順手「最佳化」相鄰程式碼、註釋、格式;不重構沒壞掉的東西;保持與該檔現有風格一致。
+- **B. 矛盾模式不混用**:同一 repo 內若已有兩種模式衝突(例如錯誤處理、命名、儲存後端、regex 風格),選一條 + 說明理由,另一條標 cleanup,不要寫「同時滿足兩套」的平均程式碼。歷史教訓:5/8 對 vhtt RATIO 的誤判就是試圖讓 vhyl/vhtt 兩套行為「自動分流」沒先選一條。
+- **C. 新增程式碼前先讀**:該檔 exports、直接呼叫方、相關共享工具(viewer 端的 `mapping.js` resolver / `patterns-computed.js` / `pattern-loader.js`;sibling repo 同名模組)。不理解現有組織就先問;「在我看來不相關」是這個 codebase 最危險的話。歷史教訓:5/13 FreePSA orderNameFilter brief 就是因為原本沒讀到 UACR 也用 `RATIO:`,改 FreePSA pattern 時撞到 UACR。
+
+來源:Forrest Chang 12-rule CLAUDE.md(blocktempo 2026-05-14 中文版整理,原規則 3 / 7 / 8);只挑出對應本專案實際踩過坑的條目。
+
 ### 不要做的事
 
 - 不要手改 `mapping.js`、`normalizers.js`、`patterns-computed.js`
