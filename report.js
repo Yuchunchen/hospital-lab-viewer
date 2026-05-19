@@ -961,6 +961,183 @@ const LEGEND_BW = `
     <span>— = 本期未檢驗</span>
   </div>`;
 
+// ─── A5 single-page layout (v1.4.0) ─────────────────────────────────────────
+// A5 landscape 單表版型 — 病人衛教/紀錄單 + 快速 quick glance。
+// Only the latest value per test; no section boxes, no multi-timepoint columns.
+// Spec source: docs/task-briefs/TASK_BRIEF_viewer_a5_layout.md (patterns repo).
+// IDs + order come from VIEWER_A5_MANIFEST in mapping.js (synced from patterns).
+const REPORT_CSS_A5 = `
+  @page { size: A5 landscape; margin: 5mm; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    font-family: Verdana, Arial, "Microsoft JhengHei", "PingFang TC", sans-serif;
+    margin: 0; padding: 0; font-size: 9pt; color: #222;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .page-a5 {
+    position: relative;
+    width: 100%;
+    padding: 2mm 4mm;
+    page-break-after: always;
+  }
+  .page-a5:last-child { page-break-after: auto; }
+
+  .page-a5 .page-header { font-size: 12pt; font-weight: 700; text-align: center; }
+  .page-a5 .page-sub    { font-size: 8pt; color: #555; text-align: center; margin-top: 0.5mm; }
+
+  /* 看診序號 overlay — A5 字級從 48pt 縮成 40pt (brief § 2.6) */
+  .visit-serial-overlay-a5 {
+    position: absolute;
+    top: 3mm; right: 6mm;
+    font-size: 40pt; font-weight: 900;
+    color: #AAAAAA; line-height: 1; z-index: 1000;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  table.excel-style-a5 {
+    width: 100%;
+    border-collapse: separate; border-spacing: 0;
+    table-layout: fixed;
+    font-size: 9pt;
+    border: 0.7pt solid #555;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 2mm;
+  }
+  table.excel-style-a5 th,
+  table.excel-style-a5 td {
+    border-right: 0.7pt solid #555;
+    border-bottom: 0.7pt solid #555;
+    padding: 0.9mm 2mm;
+    text-align: center;
+    line-height: 1.25;
+  }
+  table.excel-style-a5 th:last-child,
+  table.excel-style-a5 td:last-child { border-right: none; }
+  table.excel-style-a5 tr:last-child td { border-bottom: none; }
+  table.excel-style-a5 th {
+    background: #f0f0f0; font-weight: 700; font-size: 9pt;
+  }
+  table.excel-style-a5 td.name {
+    text-align: left; font-weight: 600; font-size: 8.8pt;
+  }
+  table.excel-style-a5 td.value {
+    font-weight: 700; font-size: 11pt;
+  }
+  table.excel-style-a5 td.ref  { font-size: 7.8pt; color: #444; }
+  table.excel-style-a5 td.date { font-size: 8pt;  color: #555; }
+
+  .page-a5 .legend {
+    margin-top: 2mm; font-size: 7.5pt; color: #555;
+    display: flex; gap: 12px; justify-content: center;
+  }
+  .page-a5 .legend .leg-hi { color: #c0392b; font-weight: 700; }
+  .page-a5 .legend .leg-lo { color: #2471a3; font-weight: 700; }
+
+  /* B&W mode — 沿用 A4 規則:紅藍變粗體底線/斜體,圓角仍在 */
+  body.bw .page-a5 .legend .leg-hi { color: #222; font-weight: 700; text-decoration: underline; }
+  body.bw .page-a5 .legend .leg-lo { color: #222; font-weight: 700; font-style: italic; }
+`;
+
+const LEGEND_A5_COLOR = `
+  <div class="legend">
+    <span><span class="leg-hi">紅色</span> = 偏高</span>
+    <span><span class="leg-lo">藍色</span> = 偏低</span>
+    <span>— = 未檢驗</span>
+  </div>`;
+
+const LEGEND_A5_BW = `
+  <div class="legend">
+    <span><span style="font-weight:700;text-decoration:underline;">粗體底線</span> = 偏高</span>
+    <span><span style="font-weight:700;font-style:italic;">粗體斜體</span> = 偏低</span>
+    <span>— = 未檢驗</span>
+  </div>`;
+
+// Build one A5 page (single rounded table, latest value only).
+// Reads ids + order from VIEWER_A5_MANIFEST (synced from patterns repo);
+// catalog merge + regex + computed staging come from the same buildResultMap /
+// genderFilteredTests / valueStyle helpers the A4 path uses — no duplication.
+function buildA5Page(patientInfo, orders, bw, title) {
+  const {
+    name = '', chartno = '', gender = '', age = '', printDate = '',
+    visitSerial = null,
+  } = patientInfo;
+
+  // VIEWER_A5_MANIFEST is a top-level const inlined by sync-patterns.js into
+  // mapping.js. Defensive fallback: empty list → no rows (better than crash).
+  const a5Ids = (typeof VIEWER_A5_MANIFEST !== 'undefined' ? VIEWER_A5_MANIFEST : [])
+    .slice()
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map(e => e.id);
+
+  const tests       = genderFilteredTests(gender, false);   // A5 不支援 HIV
+  const numMap      = buildResultMap(orders, tests, patientInfo);
+  const textMap     = buildTextResultMap(orders, tests);
+  const resultMap   = { ...numMap, ...textMap };
+  const headerTitle = title || DEFAULT_REPORT_TITLE;
+
+  const visitSerialOverlay = visitSerial
+    ? `<div class="visit-serial-overlay-a5">${h(String(visitSerial))}</div>`
+    : '';
+
+  const subInfo = [
+    `姓名:${h(name)}`,
+    `病歷號:${h(chartno)}`,
+    `性別:${h(gender)}`,
+    `年齡:${h(String(age))}歲`,
+    `列印日期:${h(printDate)}`,
+  ].join('　');
+
+  // Build rows in manifest order. All rows visually identical (brief § 2.5 —
+  // 不對 eGFR/GFRStage/EarlyCKD 加特殊 class). Missing/skipped rows show "—"
+  // in value & date cols so the table shape stays predictable.
+  const rowsHtml = a5Ids.map(id => {
+    const test = tests.find(t => t.id === id);
+    if (!test || test.kind === 'text') return '';
+    const entry = (resultMap[id] || [])[0];
+    const displayName = h(test.displayName || test.id);
+    const refText     = h(test.ref || '');
+    if (!entry) {
+      return `<tr><td class="name">${displayName}</td>` +
+             `<td class="value">—</td>` +
+             `<td class="ref">${refText}</td>` +
+             `<td class="date">—</td></tr>`;
+    }
+    const valStyle = entry._tag
+      ? psaRatioStyle(entry._tag, bw)
+      : valueStyle(entry.value, test, bw, false, gender);
+    return `<tr><td class="name">${displayName}</td>` +
+           `<td class="value" style="${valStyle}">${h(entry.value)}</td>` +
+           `<td class="ref">${refText}</td>` +
+           `<td class="date">${h(entry.date)}</td></tr>`;
+  }).join('');
+
+  const legend = bw ? LEGEND_A5_BW : LEGEND_A5_COLOR;
+
+  return `
+    <div class="page-a5">
+      ${visitSerialOverlay}
+      <div class="page-header">${h(headerTitle)}</div>
+      <div class="page-sub">${subInfo}</div>
+      <table class="excel-style-a5">
+        <colgroup>
+          <col style="width:30%"><col style="width:14%"><col style="width:34%"><col style="width:22%">
+        </colgroup>
+        <thead>
+          <tr><th>名稱</th><th>數值</th><th>正常值</th><th>檢驗日期</th></tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      ${legend}
+    </div>`;
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 /**
  * generateReport(patientInfo, orders) → HTML string
@@ -972,7 +1149,12 @@ const LEGEND_BW = `
 // Returns an HTML string of one or two .page divs.
 const DEFAULT_REPORT_TITLE = '臺北榮民總醫院玉里分院門診報告';
 
-function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivReport) {
+function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivReport, a5Layout) {
+  // A5 mode bypasses the entire 4-column A4 path. page1Only / hivReport are
+  // forced-off by the popup UI (mutually-exclusive checkbox) but we ignore
+  // them here defensively even if a caller passes them.
+  if (a5Layout) return buildA5Page(patientInfo, orders, bw, title);
+
   const {
     name = '', chartno = '', gender = '', age = '', printDate = '',
     visitSerial = null,
@@ -1036,17 +1218,21 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
 
 // Single-patient report
 // bw: true = black & white mode
-function generateReport(patientInfo, orders, bw, title, page1Only, hivReport) {
-  const pages = generatePatientPages(patientInfo, orders, bw, title, page1Only, hivReport);
+// a5Layout: true → A5 landscape single-table layout (one page, latest value)
+function generateReport(patientInfo, orders, bw, title, page1Only, hivReport, a5Layout) {
+  const pages = generatePatientPages(patientInfo, orders, bw, title, page1Only, hivReport, a5Layout);
   const name    = patientInfo.name || '';
   const chartno = patientInfo.chartno || '';
   const bodyClass = bw ? ' class="bw"' : '';
+  // @page rules can't be conditionally applied per-element, so the entire
+  // stylesheet must be swapped at the entry point (brief § 7.1).
+  const css = a5Layout ? REPORT_CSS_A5 : REPORT_CSS;
   return `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <title>病患檢驗報告 — ${h(name)} ${h(chartno)}</title>
-  <style>${REPORT_CSS}</style>
+  <style>${css}</style>
 </head>
 <body${bodyClass}>
   ${pages}
@@ -1234,23 +1420,24 @@ function generateDebugReport(patientInfo, orders, hivReport) {
 
 // Multi-patient report: takes an array of { patientInfo, orders } objects.
 // Generates pages for each patient sequentially; skips entries that throw.
-function generateMultiReport(patients, bw, title, page1Only, hivReport) {
+function generateMultiReport(patients, bw, title, page1Only, hivReport, a5Layout) {
   const allPages = [];
   patients.forEach(({ patientInfo, orders }) => {
     try {
-      allPages.push(generatePatientPages(patientInfo, orders, bw, title, page1Only, hivReport));
+      allPages.push(generatePatientPages(patientInfo, orders, bw, title, page1Only, hivReport, a5Layout));
     } catch (e) {
       // skip this patient silently
     }
   });
   if (!allPages.length) return '';
   const bodyClass = bw ? ' class="bw"' : '';
+  const css = a5Layout ? REPORT_CSS_A5 : REPORT_CSS;
   return `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <title>病患檢驗報告（${patients.length} 位）</title>
-  <style>${REPORT_CSS}</style>
+  <style>${css}</style>
 </head>
 <body${bodyClass}>
   ${allPages.join('\n')}

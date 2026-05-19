@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-13T13:23:07.188Z
+// Synced at: 2026-05-19T18:15:46.300Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -979,12 +979,49 @@ const VIEWER_MANIFEST = [
 
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEWER_A5_MANIFEST — A5 landscape single-table printout (v1.4.0)
+//
+// Used by viewer report.js `buildA5Page()` when the popup "📄 A5單頁"
+// checkbox is on. The A5 layout is a flat 4-column rounded table showing
+// only the latest value of each test; `section` is metadata for future use
+// (e.g. grouping headers) — the current renderer does not honour it.
+//
+// Order fixed by YC 2026-05-20 cowork session (TASK_BRIEF_viewer_a5_layout).
+// All ids must already exist in VIEWER_MANIFEST above (because their
+// catalog entry + regex come from there); A5 just re-orders a subset.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const VIEWER_A5_MANIFEST = [
+  { id:'GluAC',    order:1,  section:'血糖' },
+  { id:'HbA1c',    order:2,  section:'血糖' },
+  { id:'CHOL',     order:3,  section:'血脂' },
+  { id:'TG',       order:4,  section:'血脂' },
+  { id:'HDLC',     order:5,  section:'血脂' },
+  { id:'LDL',      order:6,  section:'血脂' },
+  { id:'BUN',      order:7,  section:'腎' },
+  { id:'CREAT',    order:8,  section:'腎' },
+  { id:'eGFR',     order:9,  section:'腎' },
+  { id:'GOT',      order:10, section:'肝' },
+  { id:'GPT',      order:11, section:'肝' },
+  { id:'UA',       order:12, section:'其他' },
+  { id:'UACR',     order:13, section:'腎' },
+  { id:'GFRStage', order:14, section:'腎臟病分期' },
+  { id:'EarlyCKD', order:15, section:'腎臟病分期' },
+];
+
 // ─── Exports (CommonJS + browser global) ─────────────────────────────────
+// VIEWER_MANIFEST stays as the default array export so existing consumers
+// (build-json.js, validate.js, index.js) keep working unchanged.
+// VIEWER_A5_MANIFEST is attached as a property on the array — opt-in for
+// the few consumers that need it.
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = VIEWER_MANIFEST;
+  module.exports.VIEWER_A5_MANIFEST = VIEWER_A5_MANIFEST;
 }
 if (typeof window !== 'undefined') {
-  window.HOSPITAL_LAB_PATTERNS_VIEWER_MANIFEST = VIEWER_MANIFEST;
+  window.HOSPITAL_LAB_PATTERNS_VIEWER_MANIFEST    = VIEWER_MANIFEST;
+  window.HOSPITAL_LAB_PATTERNS_VIEWER_A5_MANIFEST = VIEWER_A5_MANIFEST;
 }
 
 // ─── Resolver: merge each manifest entry on top of its catalog entry ──
@@ -1017,5 +1054,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-13T13:23:07.188Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-19T18:15:46.300Z";
 }
