@@ -1,5 +1,18 @@
 # WORKLOG
 
+## 2026-05-20 — A5 列印 driver 相容性:`@page size` 改顯式寬高
+
+- 作者:claude(與 YC 共同)
+- 範圍:report / mockup
+- 變更:修改
+- 動機:YC 實機列印發現 Chrome PDF preview 正常但實機列印時內容轉 90°(紙橫向出,字直向)。Root cause:部分印表機 driver 不認 `@page size: A5 landscape` keyword,fall back 到紙匣預設方向(portrait),自動把 landscape 內容旋轉 fit 進 portrait 紙。
+- 改檔:
+  - `report.js REPORT_CSS_A5`:`@page { size: A5 landscape; margin: 5mm; }` → `@page { size: 210mm 148mm; margin: 5mm; }`(加註解說明)。
+  - `mockups/a5-layout-mockup.html`:同樣換成 explicit dims(Cowork 端先改,本 commit 與 production CSS 一起入 git)。
+- 原因:顯式 `WIDTHmm HEIGHTmm` 由 driver 直接套用,不需解讀「landscape」keyword + orientation flag,跨 driver 行為較一致。
+- 跨 repo:無 — patterns / reporter 不受影響。
+- 相依:本 commit 應 push 在 v1.4.0 commit `02dffd2` 之上(同一波 release,driver 相容性 hotfix)。
+
 ## 2026-05-20 — A5 landscape 單表版型(v1.4.0)
 
 - 作者:claude(與 YC 共同)
