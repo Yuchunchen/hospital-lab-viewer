@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>A5 版型 Mockup — Lab Viewer</title>
+<style>
+  /* ─── Screen layout (shows A5 landscape as physical-size rectangles) ── */
+  @media screen {
+    body {
+      background: #d7d7d7;
+      padding: 24px 16px 60px;
+      font-family: "Microsoft JhengHei", "PingFang TC", Verdana, Arial, sans-serif;
+      color: #222;
+    }
+    .mockup-label {
+      max-width: 210mm;
+      margin: 24px auto 6px;
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a5276;
+    }
+    .mockup-note {
+      max-width: 210mm;
+      margin: 0 auto 10px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.5;
+    }
+    .a5-page {
+      width: 210mm;
+      height: 148mm;
+      background: white;
+      margin: 0 auto;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+      padding: 5mm 6mm;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+    .page-divider {
+      max-width: 210mm;
+      margin: 40px auto 0;
+      border-top: 2px dashed #999;
+    }
+  }
+
+  /* ─── Print layout (real A5 landscape) ───────────────────────────────── */
+  @media print {
+    @page { size: A5 landscape; margin: 5mm; }
+    body { background: #fff; margin: 0; padding: 0; }
+    .mockup-label, .mockup-note, .page-divider { display: none; }
+    .a5-page {
+      width: 100%;
+      height: auto;
+      box-shadow: none;
+      padding: 0;
+      margin: 0;
+      page-break-after: always;
+    }
+    .a5-page:last-child { page-break-after: auto; }
+  }
+
+  /* ─── Page header (shared) ───────────────────────────────────────────── */
+  .pg-header {
+    font-size: 11pt; font-weight: 700; text-align: center;
+    margin-bottom: 1mm;
+  }
+  .pg-subhdr {
+    font-size: 8pt; color: #555;
+    margin-bottom: 2.5mm;
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  }
+  .pg-subhdr span { white-space: nowrap; }
+
+  /* ─── Mockup A: Excel-style single table (rounded corners) ───────────── */
+  table.excel-style {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    font-size: 9pt;
+    border: 0.7pt solid #555;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  table.excel-style th, table.excel-style td {
+    border-right: 0.7pt solid #555;
+    border-bottom: 0.7pt solid #555;
+    padding: 0.9mm 2mm;
+    text-align: center;
+    line-height: 1.25;
+  }
+  table.excel-style th:last-child, table.excel-style td:last-child {
+    border-right: none;
+  }
+  table.excel-style tr:last-child td {
+    border-bottom: none;
+  }
+  table.excel-style th {
+    background: #f0f0f0;
+    font-weight: 700;
+    font-size: 9pt;
+  }
+  table.excel-style td.name {
+    text-align: left;
+    font-weight: 600;
+    font-size: 8.8pt;
+  }
+  table.excel-style td.value {
+    font-weight: 700;
+    font-size: 11pt;
+  }
+  table.excel-style td.ref { font-size: 7.8pt; color: #444; }
+  table.excel-style td.date { font-size: 8pt; color: #555; }
+
+  .hi { color: #c0392b; }
+  .lo { color: #2471a3; }
+
+  /* ─── 看診序號 overlay (右上角大字 watermark) ──────────────────────────
+     A5 landscape 字級從 viewer 的 48pt 縮成 40pt,維持淺灰不搶 lab data 視線。
+     沿用 viewer report.js 的設計:tabular paste 才顯示,單一 chartno 模式不顯示。*/
+  .visit-serial-overlay {
+    position: absolute;
+    top: 3mm;
+    right: 6mm;
+    font-size: 40pt;
+    font-weight: 900;
+    color: #AAAAAA;
+    line-height: 1;
+    z-index: 1000;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* ─── Legend ─────────────────────────────────────────────────────────── */
+  .legend {
+    font-size: 6.8pt; color: #555; margin-top: 1.5mm;
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .legend span { white-space: nowrap; }
+  .leg-hi { color: #c0392b; font-weight: 700; }
+  .leg-lo { color: #2471a3; font-weight: 700; }
+</style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Mockup A — Excel 風單表
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="mockup-label">Mockup A — Excel 風單表(A5 landscape, 最新值)</div>
+  <div class="mockup-note">
+    基於你貼的 Excel 列印版改的。檢驗只顯示最新一筆。
+    新增項目(eGFR、eGFR 分期、慢性腎臟病分期)視覺與舊項目一致,不特別標記。
+    範例患者 eGFR 99 / UACR 45.9 → P1 早期(damage marker 觸發)。
+  </div>
+
+  <div class="a5-page">
+    <div class="visit-serial-overlay">23</div>
+    <div class="pg-header">臺北榮民總醫院玉里分院門診報告</div>
+    <div class="pg-subhdr">
+      <span>姓名:謝冉妹</span>
+      <span>病歷號:000050252D</span>
+      <span>性別:女</span>
+      <span>年齡:70歲</span>
+      <span>列印日期:2026-05-18</span>
+    </div>
+
+    <table class="excel-style">
+      <colgroup>
+        <col style="width: 30%">
+        <col style="width: 14%">
+        <col style="width: 34%">
+        <col style="width: 22%">
+      </colgroup>
+      <thead>
+        <tr><th>名稱</th><th>數值</th><th>正常值</th><th>檢驗日期</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="name">空腹血糖</td><td class="value">94</td><td class="ref">74–100 mg/dL</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">糖化血色素</td><td class="value">5.6</td><td class="ref">4–6 %</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">總膽固醇</td><td class="value">140</td><td class="ref">0–200 mg/dL</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">三酸甘油酯</td><td class="value">73</td><td class="ref">0–150 mg/dL</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">高密度脂蛋白膽固醇</td><td class="value">45</td><td class="ref">M:&gt;40 / F:&gt;50 mg/dL</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">低密度脂蛋白膽固醇</td><td class="value">89</td><td class="ref">0–100 mg/dL</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">BUN(腎功能)</td><td class="value">15</td><td class="ref">F:7.0–18.7 / M:8.9–20.6</td><td class="date">2026-02-23</td></tr>
+        <tr><td class="name">肌酸酐(腎功能)</td><td class="value lo">0.55</td><td class="ref">M:0.6–1.2 / F:0.5–1.0 mg/dL</td><td class="date">2026-02-23</td></tr>
+        <tr><td class="name">eGFR(估算腎絲球過濾率)</td><td class="value">99</td><td class="ref">≥90 mL/min/1.73m² (CKD-EPI 2021)</td><td class="date">2026-02-23</td></tr>
+        <tr><td class="name">GOT(AST,肝指數)</td><td class="value">31</td><td class="ref">5–34 U/L</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">GPT(ALT,肝指數)</td><td class="value">22</td><td class="ref">M:&lt;45 / F:&lt;34 U/L</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">尿酸</td><td class="value lo">3.2</td><td class="ref">M:3.3–7.7 / F:2.5–6.2 mg/dL</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">蛋白尿(UACR)</td><td class="value hi">45.90</td><td class="ref">&lt;30 mg/g</td><td class="date">2026-05-15</td></tr>
+        <tr><td class="name">eGFR 分期</td><td class="value">正常</td><td class="ref">正常(≥90)/ CKD2(60–89)/ CKD3a(45–59)/ CKD3b(30–44)/ CKD4(15–29)/ CKD5(&lt;15)</td><td class="date">2026-02-23</td></tr>
+        <tr><td class="name">慢性腎臟病分期</td><td class="value hi">P1 早期</td><td class="ref">正常 / P1 (CKD 1–3a) / P2 (CKD 3b–5)</td><td class="date">2026-05-15</td></tr>
+      </tbody>
+    </table>
+
+    <div class="legend">
+      <span><span class="leg-hi">紅色</span> = 偏高</span>
+      <span><span class="leg-lo">藍色</span> = 偏低</span>
+    </div>
+  </div>
+
+</body>
+</html>

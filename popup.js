@@ -627,6 +627,7 @@ function renderResults(data, resultsEl) {
   const meta = el('div', 'meta');
   const printBtns = `<label class="page1-only-label"><input type="checkbox" id="page1-only-cb" checked /> 僅第1頁</label>` +
                      `<label class="page1-only-label"><input type="checkbox" id="hiv-report-cb" /> HIV報表</label>` +
+                     `<label class="page1-only-label"><input type="checkbox" id="a5-layout-cb" /> 📄 A5單頁</label>` +
                      ` <button class="btn-print btn-debug" id="debug-btn">檢查比對</button>` +
                      ` <button class="btn-print" id="print-color-btn">🎨 彩色列印</button>` +
                      ` <button class="btn-print btn-print-bw" id="print-bw-btn">🖨️ 黑白列印</button>`;
@@ -660,6 +661,7 @@ function renderResults(data, resultsEl) {
     const tokens     = splitChartInput(input.value);
     const page1Only  = document.getElementById('page1-only-cb')?.checked || false;
     const hivReport  = document.getElementById('hiv-report-cb')?.checked || false;
+    const a5Layout   = document.getElementById('a5-layout-cb')?.checked || false;
 
     // If only one ID (or the displayed data matches), use it directly.
     // Note: even a single tabular-paste row carries a visit serial, so we
@@ -672,7 +674,7 @@ function renderResults(data, resultsEl) {
         printDate: new Date().toLocaleDateString('zh-TW'),
         visitSerial,
       };
-      const html = generateReport(info, allOrders, bw, CONFIG.REPORT_TITLE, page1Only, hivReport);
+      const html = generateReport(info, allOrders, bw, CONFIG.REPORT_TITLE, page1Only, hivReport, a5Layout);
       try {
         await chrome.storage.local.set({ reportHtml: html, reportGeneratedAt: Date.now() });
         await chrome.tabs.create({ url: chrome.runtime.getURL('report-viewer.html') });
@@ -715,7 +717,7 @@ function renderResults(data, resultsEl) {
       return;
     }
 
-    const html = generateMultiReport(patients, bw, CONFIG.REPORT_TITLE, page1Only, hivReport);
+    const html = generateMultiReport(patients, bw, CONFIG.REPORT_TITLE, page1Only, hivReport, a5Layout);
     try {
       await chrome.storage.local.set({ reportHtml: html, reportGeneratedAt: Date.now() });
       await chrome.tabs.create({ url: chrome.runtime.getURL('report-viewer.html') });
@@ -731,6 +733,23 @@ function renderResults(data, resultsEl) {
 
   document.getElementById('print-color-btn')?.addEventListener('click', () => handlePrint(false));
   document.getElementById('print-bw-btn')?.addEventListener('click', () => handlePrint(true));
+
+  // ── A5 ↔ 僅第1頁 / HIV報表 mutually-exclusive ─────────────────────────
+  // A5 強制 1 頁、無 HIV column,所以勾 A5 時兩個 checkbox 都鎖住。
+  {
+    const a5Cb  = document.getElementById('a5-layout-cb');
+    const p1Cb  = document.getElementById('page1-only-cb');
+    const hivCb = document.getElementById('hiv-report-cb');
+    a5Cb?.addEventListener('change', () => {
+      if (a5Cb.checked) {
+        if (p1Cb)  { p1Cb.checked  = true;  p1Cb.disabled  = true;  }
+        if (hivCb) { hivCb.checked = false; hivCb.disabled = true;  }
+      } else {
+        if (p1Cb)  p1Cb.disabled  = false;
+        if (hivCb) hivCb.disabled = false;
+      }
+    });
+  }
 
   // ── Debug / Comparison mode ────────────────────────────────────────
   document.getElementById('debug-btn')?.addEventListener('click', async () => {

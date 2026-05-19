@@ -1,5 +1,31 @@
 # WORKLOG
 
+## 2026-05-20 — A5 landscape 單表版型(v1.4.0)
+
+- 作者:claude(與 YC 共同)
+- 範圍:popup / report / manifest / sync(viewer 自家 print UI 加 A5 路徑)
+- 變更:新增 + 修改
+- 動機:列印需要比 A4 更精簡的版型 — (1) 病人帶走衛教/紀錄單,A4 太大過密;(2) 醫師 quick glance 只想看最新一筆 + 是否異常。同時把 eGFR 與「慢性腎臟病分期」(EarlyCKD)納入列印項目。設計決議見 `hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_viewer_a5_layout.md` § 10(YC 2026-05-20 cowork)。
+- 改檔:
+  - `popup.js renderResults`(line 628):printBtns 加 `<input id="a5-layout-cb"> 📄 A5單頁` checkbox;`handlePrint` 讀 `a5Layout` flag 並傳給 `generateReport` / `generateMultiReport`;新增 A5 mutually-exclusive listener — 勾 A5 → 「僅第1頁」自動 checked + disabled、「HIV報表」自動 unchecked + disabled;取消 A5 → 兩者恢復。
+  - `report.js`(line 964–end):
+    - 新增 `REPORT_CSS_A5` — `@page size: A5 landscape; margin: 5mm`;`.page-a5`、`.excel-style-a5` (圓角 `border-radius: 6px` + `border-collapse: separate` 4 角圓);`.visit-serial-overlay-a5` 字級 40pt(非 A4 的 48pt)。
+    - 新增 `buildA5Page(patientInfo, orders, bw, title)` — 讀 `VIEWER_A5_MANIFEST`(從 mapping.js 來,patterns repo source of truth),沿用 `genderFilteredTests` / `buildResultMap` / `valueStyle` / `psaRatioStyle`,渲染單一 4 欄表(名稱 / 數值 / 正常值 / 檢驗日期);只顯示最新一筆(`resultMap[id][0]`);沒值顯示 `—`;所有 row 視覺一致(不對 eGFR/GFRStage/EarlyCKD 加特殊 class — brief § 2.5)。
+    - 新增 `LEGEND_A5_COLOR` / `LEGEND_A5_BW`(A5 不顯示「最新數值」灰底 legend,只有 hi/lo + `—`)。
+    - `generatePatientPages` signature 加 `a5Layout`;a5Layout=true 時 early-return `buildA5Page`。
+    - `generateReport` + `generateMultiReport` signature 加 `a5Layout`;依此選擇 `REPORT_CSS_A5` 或 `REPORT_CSS` 注入(`@page size` 無法 per-element 切換,所以 stylesheet 整份 swap)。
+  - `manifest.json`:1.3.0 → 1.4.0(minor — 新使用者可見功能)。
+  - `mapping.js`(auto-gen):跑 `node sync-patterns.js` 重新打包,新增 `VIEWER_A5_MANIFEST` 常數(15 個 id,patterns repo 來源)。
+  - `mockups/a5-layout-mockup.html`:之前未 commit,本 commit 連同 brief 一起入 git(設計 reference)。
+- Spec 邊界(YC 拍板):
+  1. A5 模式強制 1 頁、無 HIV column;UI checkbox mutually-exclusive 防呆。
+  2. eGFR / EarlyCKD 算不出來時值欄顯示 `—`,不報錯。
+  3. 兩個腎臟病分期(`GFRStage` + `EarlyCKD`)都列(brief § 2.4):eGFR 純 G 軸 vs Taiwan Pre-ESRD 二分,某些 case 會分歧但只多 1 列。
+  4. A5 manifest 順序固定(brief § 2.3),source of truth 在 patterns repo `VIEWER_A5_MANIFEST`,以後改項目只動一處。
+- 測試清單:見 brief § 4(7 case A5 基本 / 3 case UI 互斥 / 3 case 視覺 / 2 case regression)。本 commit 已過 `node --check` 語法檢查 + sync-patterns dry run;實機印表機 / 多病人 batch 待手測。
+- 跨 repo:patterns 已先 push `feat(viewer): add VIEWER_A5_MANIFEST + dist wiring (v0.4.0)`(commit `3094167`);本 repo 跑完 sync 後可看到 VIEWER_A5_MANIFEST 出現在 mapping.js line ~995。
+- 相依:patterns repo `v0.4.0` 已 push;OPD 端 24h 內透過 dist/patterns.json 自動拿到 A5 list。
+
 ## 2026-05-20 — Tabular paste 看診序號右上角 overlay(v1.3.0)
 
 - 作者:claude(與 YC 共同,在 vhyl Cowork 動手)
