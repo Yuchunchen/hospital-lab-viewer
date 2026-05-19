@@ -723,6 +723,7 @@ const REPORT_CSS = `
 
   /* ── Page ──────────────────────────────────────────── */
   .page {
+    position: relative;          /* anchor for .visit-serial-overlay */
     width: 100%;
     padding: 2mm 3mm 1.5mm;
     display: flex;
@@ -736,6 +737,31 @@ const REPORT_CSS = `
   }
   .page-sub {
     font-size: 7pt; color: #555; margin-bottom: 2mm;
+  }
+
+  /* ── 看診序號 overlay ─────────────────────────────────
+     Tabular-paste mode prints the OPD visit serial (大字, 右上角) so 護
+     理站可以快速依叫號順序分發報表。Free-form / 單一 chartno 模式不顯示。
+     position:absolute → 不影響 4-column flex/grid layout. */
+  .visit-serial-overlay {
+    position: absolute;
+    top: 5mm;
+    right: 8mm;
+    font-size: 48pt;
+    font-weight: 900;
+    color: #AAAAAA;              /* 淺灰 watermark 風,不搶 lab data 視線 */
+    line-height: 1;
+    z-index: 1000;
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @media print {
+    .visit-serial-overlay {
+      position: absolute;
+      top: 5mm;
+      right: 8mm;
+    }
   }
 
   /* ── 4-column grid ─────────────────────────────────── */
@@ -947,7 +973,10 @@ const LEGEND_BW = `
 const DEFAULT_REPORT_TITLE = '臺北榮民總醫院玉里分院門診報告';
 
 function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivReport) {
-  const { name = '', chartno = '', gender = '', age = '', printDate = '' } = patientInfo;
+  const {
+    name = '', chartno = '', gender = '', age = '', printDate = '',
+    visitSerial = null,
+  } = patientInfo;
   const tests        = genderFilteredTests(gender, hivReport);
   const numMap       = buildResultMap(orders, tests, patientInfo);
   const textMap      = buildTextResultMap(orders, tests);
@@ -965,8 +994,16 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
     `列印日期：${h(printDate)}`,
   ].join('　');
 
+  // 看診序號 overlay — only rendered when visitSerial is non-null (i.e. the
+  // chart number came from a tabular paste with a serial in col 1). Same
+  // markup on page 1 and page 2 so multi-patient batch print stays in sync.
+  const visitSerialOverlay = visitSerial
+    ? `<div class="visit-serial-overlay">${h(String(visitSerial))}</div>`
+    : '';
+
   const page1 = `
     <div class="page">
+      ${visitSerialOverlay}
       <div class="page-header">${h(headerTitle)}</div>
       <div class="page-sub">${subInfo}</div>
       <div class="report-4cols">
@@ -982,6 +1019,7 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
   const hivCol = hivReport ? buildColumn(2, 3, resultMap, tests, bw, gender) : '<div class="report-col"></div>';
   const page2 = hasPage2 ? `
     <div class="page">
+      ${visitSerialOverlay}
       <div class="page-header">${h(headerTitle)}</div>
       <div class="page-sub">${subInfo}　（第 2 頁）</div>
       <div class="report-4cols">

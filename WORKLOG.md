@@ -1,5 +1,27 @@
 # WORKLOG
 
+## 2026-05-20 — Tabular paste 看診序號右上角 overlay(v1.3.0)
+
+- 作者:claude(與 YC 共同,在 vhyl Cowork 動手)
+- 範圍:popup.js / report.js / manifest.json(本 repo,viewer 自家 print UI)
+- 變更:新增 + 修改
+- 動機:多病人列印時護理站需「看診序號」識別病人(比病歷號好認、與叫號順序對應)。tabular paste 模式從排程畫面 col 1 抓序號,印在每份報表右上角大字 overlay。
+- 改檔:
+  - `popup.js splitChartInput()`(line 44–66):回傳結構從 `string[]` 改為 `Array<{chartno, visitSerial}>`。tabular path(≥5 tab cells)抓 col 5(chartno)+ col 1(visitSerial);free-form / 單一 chartno → visitSerial = null。
+  - `popup.js handlePrint`(line 660+):single-patient path(`tokens.length <= 1`)接 `tokens[0].visitSerial`(若有);multi-patient loop destructure `{chartno, visitSerial}`,visitSerial 進 patientInfo。
+  - `popup.js updateHint`(line 755)+ `doSearch`(line 776+):tokens.forEach 改讀 `.chartno`;doSearch firstToken 改傳 `.chartno` 給 loadData。
+  - `report.js generatePatientPages`(line 949+):patientInfo destructure 加 `visitSerial = null`;page 1 + page 2 各加 `<div class="visit-serial-overlay">` HTML node(只在 visitSerial 非 null 時 render)。
+  - `report.js REPORT_CSS`(line 712+):`.page` 加 `position: relative` 作 overlay anchor;新增 `.visit-serial-overlay` 規則(`position: absolute; top: 5mm; right: 8mm; font-size: 48pt; font-weight: 900; color: #AAAAAA;` watermark 風 / `z-index: 1000;`)+ `@media print` block(印刷模式同位置)。
+  - `manifest.json`:1.2.0 → 1.3.0(minor — 新使用者可見功能)。
+- Spec 邊界(YC 拍板):
+  1. 只 tabular paste(≥5 tab cells)模式產生 visitSerial,free-form 與單一 chartno 不顯示 overlay。
+  2. 單行 tabular paste(`tokens.length === 1`)也顯示 overlay(tabular detection 為準,跟 token 數無關)。
+  3. 字級 48pt 假設序號 ≤ 2 位數(門診上午 ≤ 99);若未來規則變更需重新評估。
+  4. overlay 淺灰字(#AAAAAA watermark 風)、透明背景、B&W + 彩色 + page1Only + HIV mode 都顯示。
+- 測試清單:見 `hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_viewer_visit_serial.md` § 4(共 13 case:基本 6 / 跨模式 3 / 視覺 2 / regression + WORKLOG 2)。
+- 跨 repo:無 — 不動 patterns / reporter,不跑 sync-patterns。
+- 風險:`splitChartInput` 是 breaking change(回傳結構變動),已逐一對齊 4 個 call site;listed in brief § 7。
+
 ## 2026-05-19 — Session 切換 SOPs G–J:本 repo pointer 條目
 
 - 作者:claude(與 YC 共同,在 vhyl 動手)
