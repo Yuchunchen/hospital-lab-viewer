@@ -35,12 +35,16 @@ function loadConfig() {
 // Two modes (auto-detected per line):
 //   1. TABULAR PASTE (e.g. 門診排程):
 //        2  賴金英  女  069  000015062J  ...  複診  健保  ...
-//      A line with ≥5 tab-separated cells → take ONLY the 5th cell
-//      (病歷號 / chart number); ignore all other columns. This stops 姓名／
-//      性別／FMP code etc. being treated as candidate chart numbers.
+//      A line with ≥5 tab-separated cells → take col 5 (index 4) as the
+//      chart number AND col 1 (index 0) as the visit serial (看診序號 — the
+//      clinic-appointment order number used for patient call-out in OPD).
+//      Other columns ignored.
 //   2. FREE-FORM:
 //        108769A, 000015062J | 000020106J  …
-//      Splits on comma, semicolon, pipe, or whitespace.
+//      Splits on comma, semicolon, pipe, or whitespace. No visit serial.
+//
+// Returns: Array<{chartno: string, visitSerial: string|null}>
+//   visitSerial is only non-null for tabular-paste rows.
 function splitChartInput(raw) {
   const tokens = [];
   raw.split(/\r?\n/).forEach(line => {
@@ -48,16 +52,18 @@ function splitChartInput(raw) {
 
     const cells = line.split('\t');
     if (cells.length >= 5) {
-      // Tabular paste — col 5 (index 4) is the chart number.
-      const candidate = cells[4].trim();
-      if (candidate) tokens.push(candidate);
+      // Tabular paste — col 5 (index 4) is the chart number,
+      // col 1 (index 0) is the visit serial.
+      const chartno     = cells[4].trim();
+      const visitSerial = cells[0].trim() || null;
+      if (chartno) tokens.push({ chartno, visitSerial });
       return;
     }
 
     // Free-form line (no tabs / fewer than 5 cells).
     line.split(/[,;|\s]+/).forEach(t => {
       const s = t.trim();
-      if (s) tokens.push(s);
+      if (s) tokens.push({ chartno: s, visitSerial: null });
     });
   });
   return tokens;
@@ -655,12 +661,16 @@ function renderResults(data, resultsEl) {
     const page1Only  = document.getElementById('page1-only-cb')?.checked || false;
     const hivReport  = document.getElementById('hiv-report-cb')?.checked || false;
 
-    // If only one ID (or the displayed data matches), use it directly
+    // If only one ID (or the displayed data matches), use it directly.
+    // Note: even a single tabular-paste row carries a visit serial, so we
+    // attach tokens[0].visitSerial (if any) to the displayed patient's info.
     if (tokens.length <= 1) {
       const allOrders = [...(data.lab || []), ...(data.rad || [])];
+      const visitSerial = (tokens.length === 1 ? tokens[0].visitSerial : null);
       const info = {
         ...(data.patientInfo || { chartno: data.chartno, name: '', gender: '', age: '' }),
         printDate: new Date().toLocaleDateString('zh-TW'),
+        visitSerial,
       };
       const html = generateReport(info, allOrders, bw, CONFIG.REPORT_TITLE, page1Only, hivReport);
       try {
@@ -676,8 +686,9 @@ function renderResults(data, resultsEl) {
     const patients = [];
     let skipped = 0;
     for (let i = 0; i < tokens.length; i++) {
+      const { chartno: rawChart, visitSerial } = tokens[i];
       let chartno;
-      try { chartno = formatChartNo(tokens[i]); } catch { skipped++; continue; }
+      try { chartno = formatChartNo(rawChart); } catch { skipped++; continue; }
 
       if (statusEl) {
         statusEl.textContent = `列印：正在載入 ${i + 1}/${tokens.length} (${chartno})…`;
@@ -685,12 +696,13 @@ function renderResults(data, resultsEl) {
       }
 
       try {
-        const d = await loadData(tokens[i], false, () => {});
+        const d = await loadData(rawChart, false, () => {});
         const allOrders = [...(d.lab || []), ...(d.rad || [])];
         if (!allOrders.length) { skipped++; continue; }
         const info = {
           ...(d.patientInfo || { chartno: d.chartno, name: '', gender: '', age: '' }),
           printDate: new Date().toLocaleDateString('zh-TW'),
+          visitSerial,
         };
         patients.push({ patientInfo: info, orders: allOrders });
       } catch {
@@ -743,7 +755,7 @@ function updateHint(raw) {
   const tokens = splitChartInput(raw);
   const formatted = [];
   tokens.forEach(t => {
-    try { formatted.push(formatChartNo(t)); } catch { /* skip */ }
+    try { formatted.push(formatChartNo(t.chartno)); } catch { /* skip */ }
   });
   if (formatted.length) {
     hint.textContent = '→ ' + formatted.join(', ');
@@ -760,11 +772,11 @@ async function doSearch(forceRefresh = false) {
   const resultsEl = document.getElementById('results');
   const btn       = document.getElementById('search-btn');
 
-  // Split input into tokens; validate that at least one is a valid chart number
+  // Split input into tokens; validate that at least one has a valid chart number
   const tokens = splitChartInput(input.value);
   const validTokens = [];
   tokens.forEach(t => {
-    try { formatChartNo(t); validTokens.push(t); } catch { /* skip */ }
+    try { formatChartNo(t.chartno); validTokens.push(t); } catch { /* skip */ }
   });
 
   if (!validTokens.length) {
@@ -777,12 +789,14 @@ async function doSearch(forceRefresh = false) {
   resultsEl.innerHTML = '';
   btn.disabled = true;
 
-  // Search and display the first valid ID in the popup table
+  // Search and display the first valid ID in the popup table.
+  // (Note: doSearch displays just one patient; visitSerial isn't used here —
+  // it only matters at print time via handlePrint.)
   const firstToken = validTokens[0];
   statusEl.textContent = forceRefresh ? 'Fetching page 1…' : 'Loading…';
 
   try {
-    const data = await loadData(firstToken, forceRefresh, (fetched, total) => {
+    const data = await loadData(firstToken.chartno, forceRefresh, (fetched, total) => {
       statusEl.textContent = typeof fetched === 'string'
         ? `${fetched}…`
         : `Fetched ${fetched} / ${total} orders…`;
