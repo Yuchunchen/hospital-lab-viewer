@@ -967,7 +967,10 @@ const LEGEND_BW = `
 // Spec source: docs/task-briefs/TASK_BRIEF_viewer_a5_layout.md (patterns repo).
 // IDs + order come from VIEWER_A5_MANIFEST in mapping.js (synced from patterns).
 const REPORT_CSS_A5 = `
-  @page { size: A5 landscape; margin: 5mm; }
+  /* 用顯式寬高 (210mm × 148mm) 指定 A5 landscape,而非 keyword "A5 landscape"。
+     有些印表機 driver 不認 keyword,會 fall back 到紙匣預設方向 (portrait),
+     導致內容在 portrait 紙上轉 90°。顯式寬高 driver 比較認。同步 mockup. */
+  @page { size: 210mm 148mm; margin: 5mm; }
   *, *::before, *::after { box-sizing: border-box; }
 
   body {

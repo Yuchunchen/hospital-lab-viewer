@@ -46,7 +46,10 @@
 
   /* ─── Print layout (real A5 landscape) ───────────────────────────────── */
   @media print {
-    @page { size: A5 landscape; margin: 5mm; }
+    /* 用顯式寬高(210mm × 148mm)指定 A5 landscape,而非 keyword `A5 landscape`。
+       有些印表機 driver 不認 keyword,會 fall back 到紙匣預設方向(portrait),
+       導致內容在 portrait 紙上轉 90 度。顯式寬高 driver 比較認。 */
+    @page { size: 210mm 148mm; margin: 5mm; }
     body { background: #fff; margin: 0; padding: 0; }
     .mockup-label, .mockup-note, .page-divider { display: none; }
     .a5-page {
