@@ -3,7 +3,7 @@
   "name": "玉鳳台院內報告小幫手",
   "version": "1.4.0",
   "description": "Fetch and cache lab and imaging reports by chart number",
-  "permissions": ["storage"],
+  "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": [
     "http://*/*",
     "https://*/*"
@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["report-viewer.html"],
+      "resources": ["report-viewer.html", "dashboard.html"],
       "matches": ["<all_urls>"]
     }
   ]
