@@ -1,5 +1,20 @@
 # WORKLOG
 
+## 2026-05-21 — sync 拉新 catalog：EKG / ABI / PVR / Fundus 四個檢查 pattern
+
+- 作者：claude（與 YC 共同）
+- 範圍：sync-script（純 sync，無 viewer own-code 改動）
+- 變更：修改
+- 檔案：`mapping.js`（由 `node sync-patterns.js` 重產，源 patterns repo `patterns/catalog.js`）；`normalizers.js` / `patterns-computed.js` 也一併重產但內容未變。
+- 原因：patterns repo 同日 commit 為 `TASK_BRIEF_ckd_screening_dashboard` S1 加入 4 個檢查 entry（EKG / ABI / PVR / Fundus，category =「檢查」）。S2 Dashboard 才會消費；S1 純 sync。
+- viewer 影響：**無行為變化**。這四個 catalog entry 不在 `VIEWER_MANIFEST`，`TEST_MAP = _resolveManifest(VIEWER_MANIFEST, CATALOG)` 不會解析到，故 `report.js` 既有單人報表（含 dialysis 80885F）零影響。
+- 測試：
+  - `node sync-patterns.js` 三個檔案皆 `✓`，無 warning。
+  - 機械驗證：grep `mapping.js` 確認四個 id（EKG / ABI / PVR / Fundus）的 `{ id:'…' }` 區塊已 bundle 進來（行 849 起）。
+  - Regex 樣本對照測試在 patterns repo 端跑過 6/6 PASS（見 patterns WORKLOG 同日）。
+  - **待 YC 載入未封裝擴充功能、開一筆已知病人（建議 80885F dialysis）popup → 確認頂部 freshness badge ✓ fresh、單人報表沒新增意外欄位**。
+- 相依：patterns repo 同日 commit 必須先 push。
+
 ## 2026-05-20 — sync 拉新版 computed.js（URR / CaxP 命名對齊）
 
 - 作者：claude（與 YC 共同）
