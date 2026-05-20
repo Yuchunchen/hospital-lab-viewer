@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-20T15:42:33.275Z
+// Synced at: 2026-05-20T22:04:21.609Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -832,6 +832,40 @@ const CATALOG = [
     ],
     displayName:'腹部超音波', category:'影像 / 文字報告' },
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // EXAMINATIONS (track-only — used by CKD/DM screening Dashboard)
+  // ═══════════════════════════════════════════════════════════════════════
+  // 為 TASK_BRIEF_ckd_screening_dashboard S1 加入。Pattern 只 match orderName
+  // (不 capture 數值) — Dashboard 端拿 orderDate / status，不需 lab value。
+  // 此 category「檢查」目前不在任何 manifest 裡，所以是 track-only：viewer /
+  // reporter 既有報表不會額外渲染。
+  //
+  // vhtt order name 實測（Phase 0, 2026-05-21）：
+  //   EKG    : `E.K.G.(TT)`                       (unit: ER)
+  //   ABI/PVR: `Doppling ex. and pressure recodring`  (unit: ER, 合併一筆)
+  //   Fundus : `Fundoscopy(眼底鏡檢查)`             (unit: META)
+  // vhyl 預期 ABI / PVR 分開兩筆 order — `\b` word boundary 由各自 id match。
+
+  { id:'EKG',    displayName:'心電圖',
+    pattern: /E\.K\.G\.|心電圖|EKG|ECG/i,
+    category:'檢查',
+    unit:'', ref:'', lo:null, hi:null },
+
+  { id:'ABI',    displayName:'ABI',
+    pattern: /\bABI\b|Doppling ex\./i,
+    category:'檢查',
+    unit:'', ref:'', lo:null, hi:null },
+
+  { id:'PVR',    displayName:'PVR',
+    pattern: /\bPVR\b|Doppling ex\./i,
+    category:'檢查',
+    unit:'', ref:'', lo:null, hi:null },
+
+  { id:'Fundus', displayName:'眼底鏡',
+    pattern: /Fundoscopy|眼底鏡/i,
+    category:'檢查',
+    unit:'', ref:'', lo:null, hi:null },
+
 ];
 
 // ─── Exports (CommonJS + browser global) ─────────────────────────────────
@@ -1054,5 +1088,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-20T15:42:33.275Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-20T22:04:21.609Z";
 }
