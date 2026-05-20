@@ -1,5 +1,16 @@
 # WORKLOG
 
+## 2026-05-20 — sync 拉新版 computed.js（URR / CaxP 命名對齊）
+
+- 作者：claude（與 YC 共同）
+- 範圍：sync-script（純 sync，無 viewer own-code 改動）
+- 變更：修改
+- 檔案：`patterns-computed.js`（由 `node sync-patterns.js` 重產，源 patterns repo `patterns/computed.js`）；`mapping.js` 同時重產（catalog / viewer manifest 內容未變動）。
+- 原因：patterns repo 同日 commit 把 COMPUTATIONS 的 URR.needs 從 `['BUNPre','BUNPost']` 對齊成 `['BUN_pre','BUN_post']`，id `CaP` → `CaxP`。reporter 端 brief（`TASK_BRIEF_ckd_egfr_staging`）需要這個對齊才能讓 dispatcher 跑通。
+- viewer 影響：**無行為變化**。viewer `report.js` 只用 `HBsAgDisplay` / `AntiHBsDisplay` / `HCV` 三個 helper（從 `window.HOSPITAL_LAB_PATTERNS_COMPUTED.HELPERS` 拿）+ 自己 inline 算 eGFR（不走 COMPUTATIONS dispatcher）— URR / CaxP 兩個沒用到。Sync 只是把新檔複製進來，避免日後 patterns repo 有別的改動時 staleness 累積。
+- 測試：載入未封裝擴充功能 → 開一筆已知病人 lab 頁 → popup → 頂部 freshness badge ✓ fresh；肝炎欄位（HBsAg / Anti-HBs / Anti-HCV）顯示正常；eGFR 仍算得出。（**待 YC 在 vhtt / vhyl 各一筆病人驗證 — 風險低，patterns-computed.js 內部函式邏輯未變）。
+- 相依：patterns repo 同日 commit 必須先 push。
+
 ## 2026-05-20 — A5 列印 driver 相容性:`@page size` 改顯式寬高
 
 - 作者:claude(與 YC 共同)
