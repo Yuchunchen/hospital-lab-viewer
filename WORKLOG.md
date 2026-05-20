@@ -1,5 +1,89 @@
 # WORKLOG
 
+## 2026-05-21 — S2 篩檢 Dashboard：獨立視窗 + 個案管理 registry + DM 衛教 subpage
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup + dashboard（新增）+ manifest
+- 變更：新增 / 修改
+- 檔案：
+  - 新增 `lab-core.js` — 把 popup.js 的 fetch / parse / IndexedDB / loadData /
+    enrichMissingValues / config / formatChartNo / splitChartInput 抽出共用,
+    popup 與 dashboard 兩入口都載入。同時加入 `registry` IndexedDB store
+    (DB_VER 4 → 5) 與 `registryPut / registryGet / registryList /
+    registryRemove`。
+  - 新增 `dashboard.html` + `dashboard.js` — 獨立視窗 Dashboard,3 種輸入源
+    (候診清單 chrome.scripting / 手動 / 個案管理名單),batch fetch
+    (concurrency ≤ 3) + progress bar,渲染 16 欄表格（病歷號 / 姓名 /
+    最近抽血 / UACR / EKG / ABI / PVR / 眼底鏡 / DM衛教 / Sugar / HbA1c /
+    eGFR / GFR分期 / Early-CKD / Pre-ESRD / 動作），header 點擊排序、
+    「只看可收案」篩選、≤30天/N天前｜31-90天/N週前｜>90天/N個月前
+    相對時間、>180 天橘底/>365 天紅底警示、`未執行` 顯示 ⚠️ 已開未做 +
+    上次簽收時間、DM EDUCATION 子頁面 fetch（reuse `enrichCacheGet/Put`）
+    擷取「此次問題 / 衛教項目」最近 2 次、abnormal lab 紅字、「加入個案
+    管理」單列 + 「批次加入」全域、「報告」按鈕透過 chrome.storage.local
+    `pendingChartno` 把 chartno 寄存,popup 開啟時自動填入並 search。
+  - 修改 `popup.html` — `<script src="lab-core.js">` 在 popup.js 前載入;
+    search-bar 新增 `📊 Dashboard` 按鈕。
+  - 修改 `popup.js` — 移除已抽出函式（保留 UI / render / handlePrint /
+    doSearch / refreshPatterns / bootstrap）;新增 `openDashboardWindow`
+    用 `chrome.windows.create({ type:'popup', width:1400, height:900 })`
+    開 dashboard.html;bootstrap 讀 `chrome.storage.local.pendingChartno`
+    （5 分鐘內有效）自動填入並 search。
+  - 修改 `manifest.json` — `permissions` 加 `scripting` + `tabs`（候診清單
+    讀 opdweb 用 chrome.scripting.executeScript）;`web_accessible_resources`
+    加 `dashboard.html`。
+- 原因：`TASK_BRIEF_ckd_screening_dashboard` S2 — 自動化 CKD/DM 收案追蹤,
+  取代手動 Excel `0519DM+CKD追蹤日期.xlsx`。S2.8 決定用獨立視窗（chrome.
+  windows.create 1400×900）而非 popup tab,Tab 1 popup 保留單人報告流程。
+- 設計決策：
+  - EKG/ABI/PVR/Fundus pattern 直接從 `window.HOSPITAL_LAB_PATTERNS_CATALOG`
+    取（這些 entry 不在 `VIEWER_MANIFEST`,故不在 `TEST_MAP`）;match 對
+    `orderName`,非 `reportText`（這四個是 imaging-style order）。Doppling
+    合併 order 會同時 match ABI 和 PVR 兩欄,符合 S1 設計。
+  - 收案判定 reuse `window.HOSPITAL_LAB_PATTERNS_COMPUTED.HELPERS` 的
+    `eGFR_CKDEPI_2021 / GFRStage / TaiwanCKD / EarlyCKD` — 與 viewer
+    單人報告同源,確保 dashboard 跟 popup 顯示一致。
+  - 排序 key：未執行 order `resdttm` 可能空,fallback 把 orderDate
+    （台灣紀年）轉成 `YYYYMMDDHHMMSS` 排序,讓最近開立但未執行的 order
+    能正確上浮到「最新」。
+  - DM 判定：orderName match `/DM EDUCATION/i` 即為 DM（per brief S2.9）;
+    不依賴 lab 值。
+  - 候診清單啟發式擷取：跑在 opdweb tab 內,先試 row-level（≥5 cells,
+    第 5 欄 match 9 碼 + 1 字母）回傳 tab-paste 字串讓 `splitChartInput`
+    處理（保留看診序號）;退而求其次回傳純病歷號 tokens。
+  - 「Tab 1 報告頁加入個案管理」按鈕：依 user 明示延到 S3,本輪未做。
+- viewer 影響：
+  - **popup 行為應與先前等價** — 抽出的函式只是換 script 載入位置,
+    DB_VER 4→5 升級用 `if (!contains)` 安全寫法（既有 records /
+    enrichCache store 不變,只多 registry store）。`renderResults`、
+    `handlePrint`、列印按鈕、A5/HIV checkbox、debug 按鈕完全未動。
+  - **新增可選功能** — Dashboard 按鈕,不影響既有單人模式。
+- 測試（需 YC 在實機驗證）：
+  - 既有單人模式 regression：80885F dialysis、76708I（CKD/DM）、
+    任何 vhtt / vhyl 已知病人,確認 popup 行為等價（freshness badge、
+    cache hit、列印 page 1 + A5）。
+  - Dashboard：
+    1. 開啟 popup → 按 `📊 Dashboard` → 1400×900 視窗開啟。
+    2. textarea 貼 3 個以上病歷號（含 76708I/125509A/80885F）→ 按
+       「開始篩檢」→ progress bar 跳動 → 表格出現 16 欄資料。
+    3. UACR/Sugar/HbA1c/eGFR 異常值紅字。
+    4. EKG/ABI/PVR/Fundus 日期欄 > 180 天橘底 / > 365 天紅底。
+    5. 若有「未執行」EKG/ABI/PVR/Fundus → 顯示 ⚠️ 已開未做 + 上次簽收。
+    6. DM EDUCATION 病人（如 76708I）→ DM 衛教欄有兩行「日期 / 此次
+       問題 / 衛教」;hover 看完整 tooltip。
+    7. 收案判定：eGFR ≥ 45 + 有腎臟損傷 → Early-CKD ✅;eGFR < 45 →
+       Pre-ESRD ✅;有 DM EDUCATION → DM tag。
+    8. 點 header 排序 / 勾「只看可收案」篩選。
+    9. 點某列「加入個案管理」→ status 顯示已加入 → 該列按鈕變「已收案」。
+   10. 重整 dashboard → 點「個案管理名單」按鈕 → textarea 自動填入 →
+       自動 batch fetch 已收案者。
+   11. 點病歷號 link「報告」按鈕 → 開啟瀏覽器右上角 popup → 自動填入並 search。
+   12. opdweb 候診清單按鈕（若有 opdweb tab 開著）→ 自動填入。
+- 相依：無 patterns repo 變動（純 viewer own-code）;`mapping.js` /
+  `patterns-computed.js` 不需重 sync。
+- 待續（S3）：CSV export、批次列印、Tab 1 報告頁「加入個案管理」按鈕、
+  全量 regression。
+
 ## 2026-05-21 — sync 拉新 catalog：EKG / ABI / PVR / Fundus 四個檢查 pattern
 
 - 作者：claude（與 YC 共同）
