@@ -118,9 +118,13 @@
     .badge-cac  { background: #fdebd0; color: #b9770e; }
     .badge-ldct { background: #d6eaf8; color: #1a5276; }
 
-    /* 原始內容 / 摘要：螢幕上 clip 2 行 + tooltip,列印展開 */
-    .raw-cell { max-width: 360px; }
-    .raw-cell .clip2 { font-size: 11px; color: #34495e; white-space: pre-line; }
+    /* 原始內容：完整顯示（不 truncate）,保留換行 */
+    .raw-cell { max-width: 420px; }
+    .raw-cell .raw-full {
+      font-size: 11px; color: #34495e; line-height: 1.4;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    /* 摘要：螢幕上 clip 2 行 + tooltip,列印展開 */
     .summary-cell { max-width: 320px; }
     .clip2 {
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
