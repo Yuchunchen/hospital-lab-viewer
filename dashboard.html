@@ -26,13 +26,13 @@
     }
     .header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.3px; }
     .header .sub { font-size: 11px; opacity: 0.75; }
-    .header #open-cxr-btn {
-      margin-left: auto;
+    .header .hdr-btn {
       background: rgba(255,255,255,.15);
       color: #fff; border: 1px solid rgba(255,255,255,.35);
       border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer;
     }
-    .header #open-cxr-btn:hover { background: rgba(255,255,255,.28); }
+    .header .hdr-btn:hover { background: rgba(255,255,255,.28); }
+    .header #src-registry { margin-left: auto; }
 
     /* ─── Input panel ──────────────────────────────────────────── */
     .input-panel {
@@ -67,38 +67,6 @@
     }
     .source-row label input { vertical-align: middle; margin-right: 3px; }
 
-    textarea#chartno-input {
-      width: 100%;
-      min-height: 60px;
-      max-height: 200px;
-      resize: vertical;
-      border: 1px solid #b0c4d8;
-      border-radius: 4px;
-      padding: 6px 10px;
-      font-family: monospace;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-    textarea#chartno-input:focus { border-color: #1a5276; outline: none; box-shadow: 0 0 0 2px rgba(26,82,118,.15); }
-
-    .action-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-top: 8px;
-    }
-    button#run-btn {
-      background: #1e8449;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 7px 18px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    button#run-btn:hover { background: #196f3d; }
-    button#run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .progress {
       flex: 1;
       font-size: 12px;
@@ -252,23 +220,16 @@
   <div class="header">
     <span>📊</span>
     <h1>CKD/DM 收案篩檢 Dashboard</h1>
-    <button id="open-cxr-btn" title="開啟健檢 CXR 批次翻譯獨立視窗">🩻 CXR 翻譯</button>
     <span class="sub" id="header-sub">vhtt / vhyl ernode</span>
+    <button id="src-registry" class="hdr-btn" title="載入個案管理收案名單重新篩檢">📋 個案名單</button>
+    <button id="open-cxr-btn" class="hdr-btn" title="開啟健檢報告（CXR 批次翻譯）獨立視窗">🩻 健檢報告</button>
   </div>
 
   <div class="input-panel">
     <div class="source-row">
-      <strong style="font-size:12px;color:#4a5568;">輸入來源：</strong>
-      <button id="src-opdweb" title="從目前 opdweb 候診頁讀取病歷號">候診清單</button>
-      <button id="src-manual" title="自行貼入文字 / 點選 textarea 編輯">手動輸入</button>
-      <button id="src-registry" title="讀取個案管理 registry 名單">個案管理名單</button>
       <span class="spacer"></span>
       <label><input type="checkbox" id="filter-eligible" /> 只看可收案</label>
       <button id="batch-enroll" title="把所有符合條件者一次加入個案管理">批次加入</button>
-    </div>
-    <textarea id="chartno-input" placeholder="一行一個病歷號，或貼入門診排程表格（自動取第5欄）"></textarea>
-    <div class="action-row">
-      <button id="run-btn">開始篩檢</button>
       <span class="progress">
         <span class="progress-bar"><span id="progress-fill"></span></span>
         <span id="progress-text">尚未開始</span>
@@ -301,7 +262,7 @@
         </tr>
       </thead>
       <tbody id="result-body">
-        <tr><td colspan="16" class="empty-table">輸入病歷號後按「開始篩檢」</td></tr>
+        <tr><td colspan="16" class="empty-table">請在 popup 貼上病歷號清單後按「DM腎病個案管理」</td></tr>
       </tbody>
     </table>
   </div>

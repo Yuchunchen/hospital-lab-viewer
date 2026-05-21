@@ -1,5 +1,22 @@
 # WORKLOG
 
+## 2026-05-21 — UI 重構：popup 統一入口 + 按鈕改名 + Dashboard/CXR 移除輸入區
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup / dashboard / cxr（html + js）
+- 變更：修改 / 移除
+- 檔案：
+  - `popup.html`/`popup.js` — 按鈕改名：Search→「報告查詢」、Dashboard→「📊 DM腎病個案管理」、CXR 翻譯→「🩻 健檢報告」。新增 `sendListToWindow()`：DM/健檢按鈕取同一個 textarea 內容 → 存 `chrome.storage.session`（`dashboard_chartlist` / `cxr_chartlist`，value `{text, ts}`，ts 讓相同清單再送也觸發 onChanged）→ 已開視窗則 `chrome.tabs.query` 找到後 `windows.update` focus，否則 `windows.create`。placeholder 更新說明三按鈕。「報告查詢」行為不變。
+  - `dashboard.html`/`dashboard.js` — 移除 textarea + 候診清單/手動輸入/開始篩檢；「個案管理名單」改名「📋 個案名單」移到 header（registry 是 popup 拿不到的獨立資料源，保留）；「只看可收案」+「批次加入」保留在精簡控制列。load 時 `chrome.storage.session.get('dashboard_chartlist')` → `screenChartText()`（原 runScreen 改寫、去除 run-btn 依賴）；`storage.onChanged` 監聽 session 變化自動重篩。header「🩻 健檢報告」改成把目前已篩清單帶去 CXR 視窗（避免開到空白）。
+  - `cxr.html`/`cxr.js` — 移除 textarea + 候診清單/手動 + 開始翻譯；保留「🖨️ 列印」+「只看異常/只看無報告」。`cxrRun()` 改寫為 `cxrRunFromText(rawText)`；load 讀 `cxr_chartlist` → 自動跑；`storage.onChanged` 自動重翻譯。移除 `cxrLoadFromOpdweb`（無 textarea 後成 dead code）。
+  - 兩視窗清掉 textarea#chartno-input / button#run-btn / .action-row 的 dead CSS。
+- 原因：把病歷號輸入統一到 popup 一個 textarea，三個按鈕（報告查詢 / DM腎病個案管理 / 健檢報告）吃同一份輸入，獨立視窗只負責呈現，不再各自有輸入區。chrome.storage.session 暫存清單（關 Chrome 即清），重複按按鈕＝更新 storage + focus 已開視窗 + onChanged 自動重抓。
+- 測試：
+  - `node --check` popup.js / dashboard.js / cxr.js 皆通過。
+  - grep 確認：`<textarea>` 只剩 popup.html；dashboard/cxr body 無 textarea；三按鈕文字正確；JS 無殘留 chartno-input / run-btn / loadFromOpdweb / runScreen 參照。
+  - 待手動測（需院內網 + OPSID）：popup 送清單 → 新開視窗自動 fetch；視窗已開時再按 → focus + 自動重抓（onChanged）；「📋 個案名單」載入 registry 重篩；dashboard「🩻 健檢報告」帶現有清單到 CXR。
+- 相依：純 viewer，不需 patterns / reporter 重 sync。
+
 ## 2026-05-21 — 健檢 CXR S2：批次翻譯 pipeline（mock LLM，多後端架構）
 
 - 作者：claude（與 YC 共同）

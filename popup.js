@@ -325,25 +325,50 @@ async function refreshPatterns(forceRefresh) {
   }
 }
 
-// ─── Dashboard 獨立視窗 ─────────────────────────────────────────────────
-// chrome.windows.create 開新視窗;失敗時 fallback 為 chrome.tabs.create。
-function openDashboardWindow() {
-  const url = chrome.runtime.getURL('dashboard.html');
-  if (chrome.windows && chrome.windows.create) {
-    chrome.windows.create({ url, type: 'popup', width: 1400, height: 900 });
-  } else {
-    chrome.tabs.create({ url });
+// ─── 統一入口：把 textarea 清單送到獨立視窗 ─────────────────────────────
+// popup 是唯一輸入點。按「DM腎病個案管理」/「健檢報告」時：把 textarea 原文
+// 存進 chrome.storage.session（{text, ts}，帶 ts 讓相同清單再送也會觸發
+// onChanged）→ 若目標視窗已開就 focus（視窗端 storage.onChanged 自動重抓）,
+// 否則新開 chrome.windows.create。session 不持久化,關 Chrome 即清。
+async function sendListToWindow(pageUrl, storageKey, opts) {
+  const raw = (document.getElementById('chartno-input').value || '');
+  const statusEl = document.getElementById('status');
+  const valid = splitChartInput(raw).filter(t => {
+    try { formatChartNo(t.chartno); return true; } catch { return false; }
+  });
+  if (!valid.length) {
+    statusEl.textContent = '請先在上方貼上至少一個有效的病歷號。';
+    statusEl.className = 'status error';
+    return;
   }
+  try {
+    await chrome.storage.session.set({ [storageKey]: { text: raw, ts: Date.now() } });
+  } catch (e) {
+    statusEl.textContent = 'chrome.storage.session 不可用：' + e.message;
+    statusEl.className = 'status error';
+    return;
+  }
+
+  const fullUrl = chrome.runtime.getURL(pageUrl);
+  let existing = [];
+  try { existing = await chrome.tabs.query({ url: fullUrl }); } catch (_) {}
+  if (existing && existing.length) {
+    chrome.windows.update(existing[0].windowId, { focused: true });
+  } else if (chrome.windows && chrome.windows.create) {
+    chrome.windows.create({ url: fullUrl, type: 'popup', width: opts.width, height: opts.height });
+  } else {
+    chrome.tabs.create({ url: fullUrl });
+  }
+  statusEl.textContent = `已送 ${valid.length} 筆病歷號到「${opts.label}」`;
+  statusEl.className = 'status';
 }
 
-// ─── 健檢 CXR 翻譯 獨立視窗 ─────────────────────────────────────────────
+function openDashboardWindow() {
+  sendListToWindow('dashboard.html', 'dashboard_chartlist', { width: 1400, height: 900, label: 'DM腎病個案管理' });
+}
+
 function openCxrWindow() {
-  const url = chrome.runtime.getURL('cxr.html');
-  if (chrome.windows && chrome.windows.create) {
-    chrome.windows.create({ url, type: 'popup', width: 1200, height: 860 });
-  } else {
-    chrome.tabs.create({ url });
-  }
+  sendListToWindow('cxr.html', 'cxr_chartlist', { width: 1200, height: 860, label: '健檢報告' });
 }
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────

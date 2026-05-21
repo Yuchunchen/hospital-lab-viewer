@@ -547,107 +547,43 @@ function setProgress(done, total) {
   text.textContent = total ? `${done} / ${total} 完成 (${pct}%)` : '尚未開始';
 }
 
-// ─── 輸入源 handlers ───────────────────────────────────────────────
-async function loadFromOpdweb() {
-  if (!chrome.scripting || !chrome.scripting.executeScript) {
-    setStatus('此 Chrome 版本不支援 chrome.scripting,請手動貼入候診清單', true);
-    return;
-  }
-  try {
-    const tabs = await chrome.tabs.query({});
-    const opdwebTab = tabs.find(t =>
-      t.url && /opdweb\.|opdweb/i.test(t.url || '')
-    );
-    if (!opdwebTab) {
-      setStatus('找不到已開啟的 opdweb 候診頁 tab,請手動貼入或開啟 opdweb 後重試', true);
-      return;
-    }
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId: opdwebTab.id },
-      func: () => {
-        // 啟發式：抓所有 table cell,挑符合 9-digit + 1-letter 的 token
-        const tokens = new Set();
-        document.querySelectorAll('table td, table th').forEach(c => {
-          const t = (c.textContent || '').trim();
-          if (/^\d{6,9}[A-Za-z]$/.test(t)) tokens.add(t);
-        });
-        // 順便也試 row 整段（tab-paste 模式 splitChartInput 會接手）
-        const rows = [];
-        document.querySelectorAll('table tr').forEach(tr => {
-          const cells = [...tr.querySelectorAll('td,th')].map(c => (c.textContent || '').trim());
-          if (cells.length >= 5 && /^\d{6,9}[A-Za-z]$/.test(cells[4])) {
-            rows.push(cells.join('\t'));
-          }
-        });
-        return { tokens: [...tokens], rows };
-      },
-    });
-    const { tokens = [], rows = [] } = (result && result.result) || {};
-    const ta = document.getElementById('chartno-input');
-    if (rows.length) {
-      ta.value = rows.join('\n');
-      setStatus(`已從 opdweb 讀入 ${rows.length} 筆（含看診序號）`);
-    } else if (tokens.length) {
-      ta.value = tokens.join('\n');
-      setStatus(`已從 opdweb 讀入 ${tokens.length} 個病歷號`);
-    } else {
-      setStatus('opdweb tab 找到但沒看到病歷號欄位,可能格式不同 — 請手動貼入', true);
-    }
-  } catch (e) {
-    setStatus('讀取 opdweb 失敗：' + e.message, true);
-  }
-}
-
+// ─── 個案管理名單來源（保留：popup 拿不到 registry,這是唯一入口） ─────
 async function loadFromRegistry() {
   await refreshRegistrySet();
   try {
     const list = await registryList();
-    if (!list.length) {
-      setStatus('個案管理 registry 是空的');
-      return;
-    }
-    document.getElementById('chartno-input').value =
-      list.map(r => r.chartno).join('\n');
-    setStatus(`已載入個案管理名單 ${list.length} 筆 — 點擊「開始篩檢」自動 batch fetch`);
-    // S2.7: 自動開始 batch fetch
-    runScreen();
+    if (!list.length) { setStatus('個案管理 registry 是空的'); return; }
+    setStatus(`載入個案管理名單 ${list.length} 筆 — 開始批次篩檢…`);
+    screenChartText(list.map(r => r.chartno).join('\n'));
   } catch (e) {
     setStatus('讀取 registry 失敗：' + e.message, true);
   }
 }
 
-// ─── 主要：跑篩檢 ───────────────────────────────────────────────────
-async function runScreen() {
-  const ta = document.getElementById('chartno-input');
-  const tokens = splitChartInput(ta.value);
+// ─── 主要：跑篩檢（清單來自 popup → chrome.storage.session 或 registry） ─
+async function screenChartText(rawText) {
+  const tokens = splitChartInput(rawText || '');
   const valid = [];
   tokens.forEach(t => {
     try { valid.push(formatChartNo(t.chartno)); } catch (_) {}
   });
-  // dedupe
   const uniq = [...new Set(valid)];
   if (!uniq.length) {
-    setStatus('請至少輸入一個有效的病歷號', true);
+    setStatus('清單為空或無有效病歷號 — 請在 popup 貼上病歷號清單後按「DM腎病個案管理」', true);
     return;
   }
-  const runBtn = document.getElementById('run-btn');
-  runBtn.disabled = true;
   setStatus(`開始篩檢 ${uniq.length} 位病人…`);
   setProgress(0, uniq.length);
 
   await refreshRegistrySet();
 
   try {
-    state.results = await batchScreen(uniq, (done, total) => {
-      setProgress(done, total);
-    });
+    state.results = await batchScreen(uniq, (done, total) => setProgress(done, total));
     renderTable();
     const errCount = state.results.filter(r => r && r.error).length;
     setStatus(`完成：${uniq.length} 位（${errCount} 筆錯誤）。表格 header 可點擊排序。`);
   } catch (e) {
     setStatus('篩檢失敗：' + (e.message || e), true);
-  } finally {
-    runBtn.disabled = false;
   }
 }
 
@@ -674,6 +610,35 @@ async function refreshPatterns(force) {
   } catch (_) {}
 }
 
+// ─── 清單來源：popup → chrome.storage.session ─────────────────────────
+// popup 是唯一輸入點;按「DM腎病個案管理」會把清單存進 session（{text, ts}）。
+// 本視窗載入時讀一次,之後靠 storage.onChanged 偵測 popup 再次送清單（含
+// 已開視窗 focus 的情境）自動重新篩檢。
+const DASHBOARD_LIST_KEY = 'dashboard_chartlist';
+
+async function loadListFromSession() {
+  try {
+    const r = await chrome.storage.session.get([DASHBOARD_LIST_KEY]);
+    const entry = r[DASHBOARD_LIST_KEY];
+    if (entry && entry.text) { screenChartText(entry.text); return true; }
+  } catch (_) {}
+  return false;
+}
+
+// 把目前已篩檢的病歷號帶去「健檢報告」視窗（避免開到空白視窗）。
+async function openCxrWithCurrentList() {
+  const chartnos = state.results.filter(r => r && r.chartno).map(r => r.chartno);
+  if (chartnos.length) {
+    try { await chrome.storage.session.set({ cxr_chartlist: { text: chartnos.join('\n'), ts: Date.now() } }); } catch (_) {}
+  }
+  const url = chrome.runtime.getURL('cxr.html');
+  let existing = [];
+  try { existing = await chrome.tabs.query({ url }); } catch (_) {}
+  if (existing && existing.length) chrome.windows.update(existing[0].windowId, { focused: true });
+  else if (chrome.windows && chrome.windows.create) chrome.windows.create({ url, type: 'popup', width: 1200, height: 860 });
+  else chrome.tabs.create({ url });
+}
+
 // ─── Bootstrap ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
@@ -683,26 +648,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   refreshPatterns(false);
   await refreshRegistrySet();
 
-  document.getElementById('src-opdweb')  ?.addEventListener('click', loadFromOpdweb);
-  document.getElementById('src-manual')  ?.addEventListener('click', () => {
-    document.getElementById('chartno-input').focus();
-    setStatus('請在 textarea 自行輸入或貼入病歷號');
-  });
   document.getElementById('src-registry')?.addEventListener('click', loadFromRegistry);
-  document.getElementById('run-btn')     ?.addEventListener('click', runScreen);
   document.getElementById('batch-enroll')?.addEventListener('click', batchEnroll);
-  document.getElementById('open-cxr-btn')?.addEventListener('click', () => {
-    const url = chrome.runtime.getURL('cxr.html');
-    if (chrome.windows && chrome.windows.create) {
-      chrome.windows.create({ url, type: 'popup', width: 1200, height: 860 });
-    } else {
-      chrome.tabs.create({ url });
-    }
-  });
+  document.getElementById('open-cxr-btn')?.addEventListener('click', openCxrWithCurrentList);
 
   document.getElementById('filter-eligible')?.addEventListener('change', (e) => {
     state.filterEligible = e.target.checked;
     renderTable();
+  });
+
+  // 載入 popup 送來的清單;沒有就提示
+  const got = await loadListFromSession();
+  if (!got && CONFIG.OPSID) {
+    setStatus('請在 popup 貼上病歷號清單後按「DM腎病個案管理」,或點右上「📋 個案名單」載入收案清單');
+  }
+
+  // popup 再次送清單（或 focus 已開視窗時）→ 自動重新篩檢
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'session') return;
+    const c = changes[DASHBOARD_LIST_KEY];
+    if (c && c.newValue && c.newValue.text) screenChartText(c.newValue.text);
   });
 
   // sort by clicking header
