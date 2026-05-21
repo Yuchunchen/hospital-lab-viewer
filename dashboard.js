@@ -14,10 +14,13 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 // ─── 短工具 ─────────────────────────────────────────────────────────────
-const HELPERS  = (window.HOSPITAL_LAB_PATTERNS_COMPUTED || {}).HELPERS || {};
-const CATALOG  = window.HOSPITAL_LAB_PATTERNS_CATALOG || [];
+// 注意：patterns-computed.js 已 top-level `const HELPERS`、mapping.js 已
+// top-level `const CATALOG`,classic script 共用 global lexical scope,
+// 此檔不能再 const 同名,改用 LAB_ 前綴。
+const LAB_HELPERS = (window.HOSPITAL_LAB_PATTERNS_COMPUTED || {}).HELPERS || {};
+const LAB_CATALOG = window.HOSPITAL_LAB_PATTERNS_CATALOG || [];
 
-function catById(id) { return CATALOG.find(c => c.id === id) || null; }
+function catById(id) { return LAB_CATALOG.find(c => c.id === id) || null; }
 
 function resdttmToTaiwan(str) {
   if (!str || str.length < 8) return null;
@@ -168,8 +171,8 @@ async function screenPatient(rawChart) {
 
   let egfr = null;
   if (creat && patientInfo.age && patientInfo.gender) {
-    const e = HELPERS.eGFR_CKDEPI_2021
-      ? HELPERS.eGFR_CKDEPI_2021({
+    const e = LAB_HELPERS.eGFR_CKDEPI_2021
+      ? LAB_HELPERS.eGFR_CKDEPI_2021({
           creatinine: parseFloat(creat.value),
           age:        parseInt(patientInfo.age, 10),
           gender:     patientInfo.gender,
@@ -190,9 +193,9 @@ async function screenPatient(rawChart) {
 
   const egfrVal = egfr ? egfr.value : null;
   const uacrVal = uacr ? parseFloat(uacr.value) : null;
-  const gfrStage  = HELPERS.GFRStage  ? HELPERS.GFRStage({ eGFR: egfrVal }) : null;
-  const taiwanCKD = HELPERS.TaiwanCKD ? HELPERS.TaiwanCKD({ eGFR: egfrVal, UACR: uacrVal, UPCR: null }) : null;
-  const earlyCKD  = HELPERS.EarlyCKD  ? HELPERS.EarlyCKD({ TaiwanCKD: taiwanCKD, eGFR: egfrVal }) : null;
+  const gfrStage  = LAB_HELPERS.GFRStage  ? LAB_HELPERS.GFRStage({ eGFR: egfrVal }) : null;
+  const taiwanCKD = LAB_HELPERS.TaiwanCKD ? LAB_HELPERS.TaiwanCKD({ eGFR: egfrVal, UACR: uacrVal, UPCR: null }) : null;
+  const earlyCKD  = LAB_HELPERS.EarlyCKD  ? LAB_HELPERS.EarlyCKD({ TaiwanCKD: taiwanCKD, eGFR: egfrVal }) : null;
 
   const labSorted = [...lab].sort((a, b) =>
     orderSortKey(b).localeCompare(orderSortKey(a))
