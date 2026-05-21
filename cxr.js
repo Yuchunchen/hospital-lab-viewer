@@ -329,17 +329,17 @@ function cxrSetProgress(done, total, label) {
   text.textContent = total ? `${label || ''} ${done}/${total} (${pct}%)` : '尚未開始';
 }
 
-// ─── 主流程 ─────────────────────────────────────────────────────────────
-async function cxrRun() {
-  const ta = document.getElementById('chartno-input');
-  const tokens = splitChartInput(ta.value);   // lab-core
+// ─── 主流程（清單來自 popup → chrome.storage.session 'cxr_chartlist'） ──
+async function cxrRunFromText(rawText) {
+  const tokens = splitChartInput(rawText || '');   // lab-core
   const valid = [];
   tokens.forEach(t => { try { valid.push(formatChartNo(t.chartno)); } catch (_) {} });
   const uniq = [...new Set(valid)];
-  if (!uniq.length) { cxrSetStatus('請至少輸入一個有效的病歷號', true); return; }
+  if (!uniq.length) {
+    cxrSetStatus('清單為空或無有效病歷號 — 請在 popup 貼上病歷號清單後按「健檢報告」', true);
+    return;
+  }
 
-  const runBtn = document.getElementById('run-btn');
-  runBtn.disabled = true;
   cxrSetStatus(`第一階段：抓取 ${uniq.length} 位病人的 CXR order…`);
   cxrSetProgress(0, uniq.length, '抓取');
 
@@ -367,46 +367,6 @@ async function cxrRun() {
   const none = rows.filter(r => r && r.status === 'noReport').length;
   const err = rows.filter(r => r && (r.status === 'error' || r.error)).length;
   cxrSetStatus(`完成：${uniq.length} 位 · 🔴異常 ${abn} · ⚠️無報告 ${none}` + (err ? ` · 錯誤 ${err}` : '') + '。表格 header 可點擊排序。');
-  runBtn.disabled = false;
-}
-
-// ─── opdweb 候診清單讀取（同 dashboard 的啟發式） ───────────────────────
-async function cxrLoadFromOpdweb() {
-  if (!chrome.scripting || !chrome.scripting.executeScript) {
-    cxrSetStatus('此 Chrome 版本不支援 chrome.scripting，請手動貼入候診清單', true);
-    return;
-  }
-  try {
-    const tabs = await chrome.tabs.query({});
-    const opdwebTab = tabs.find(t => t.url && /opdweb/i.test(t.url || ''));
-    if (!opdwebTab) {
-      cxrSetStatus('找不到已開啟的 opdweb 候診頁 tab，請手動貼入或開啟 opdweb 後重試', true);
-      return;
-    }
-    const [result] = await chrome.scripting.executeScript({
-      target: { tabId: opdwebTab.id },
-      func: () => {
-        const tokens = new Set();
-        document.querySelectorAll('table td, table th').forEach(c => {
-          const t = (c.textContent || '').trim();
-          if (/^\d{6,9}[A-Za-z]$/.test(t)) tokens.add(t);
-        });
-        const rows = [];
-        document.querySelectorAll('table tr').forEach(tr => {
-          const cells = [...tr.querySelectorAll('td,th')].map(c => (c.textContent || '').trim());
-          if (cells.length >= 5 && /^\d{6,9}[A-Za-z]$/.test(cells[4])) rows.push(cells.join('\t'));
-        });
-        return { tokens: [...tokens], rows };
-      },
-    });
-    const { tokens = [], rows = [] } = (result && result.result) || {};
-    const ta = document.getElementById('chartno-input');
-    if (rows.length)      { ta.value = rows.join('\n');   cxrSetStatus(`已從 opdweb 讀入 ${rows.length} 筆（含看診序號）`); }
-    else if (tokens.length){ ta.value = tokens.join('\n'); cxrSetStatus(`已從 opdweb 讀入 ${tokens.length} 個病歷號`); }
-    else                  cxrSetStatus('opdweb tab 找到但沒看到病歷號欄位，請手動貼入', true);
-  } catch (e) {
-    cxrSetStatus('讀取 opdweb 失敗：' + e.message, true);
-  }
 }
 
 // ─── 列印 ───────────────────────────────────────────────────────────────
@@ -485,6 +445,18 @@ async function cxrRefreshPatterns(force) {
   try { await window.loadPatterns(force); } catch (_) {}
 }
 
+// ─── 清單來源：popup → chrome.storage.session 'cxr_chartlist' ───────────
+const CXR_LIST_KEY = 'cxr_chartlist';
+
+async function cxrLoadListFromSession() {
+  try {
+    const r = await chrome.storage.session.get([CXR_LIST_KEY]);
+    const entry = r[CXR_LIST_KEY];
+    if (entry && entry.text) { cxrRunFromText(entry.text); return true; }
+  } catch (_) {}
+  return false;
+}
+
 // ─── Bootstrap ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();          // lab-core
@@ -499,12 +471,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     cxrSetStatus('catalog 找不到 CXR pattern — 請先在 popup 重新整理 patterns（或 sync-patterns）', true);
   }
 
-  document.getElementById('src-opdweb')?.addEventListener('click', cxrLoadFromOpdweb);
-  document.getElementById('src-manual')?.addEventListener('click', () => {
-    document.getElementById('chartno-input').focus();
-    cxrSetStatus('請在 textarea 自行輸入或貼入病歷號');
-  });
-  document.getElementById('run-btn')?.addEventListener('click', cxrRun);
   document.getElementById('print-btn')?.addEventListener('click', cxrPrint);
 
   document.getElementById('filter-abnormal')?.addEventListener('change', e => {
@@ -540,5 +506,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('settings-modal')?.addEventListener('click', e => {
     if (e.target.id === 'settings-modal') cxrCloseSettings();
+  });
+
+  // 載入 popup 送來的清單;沒有就提示
+  const got = await cxrLoadListFromSession();
+  if (!got && CONFIG.OPSID && cxrCatById('CXR')) {
+    cxrSetStatus('請在 popup 貼上病歷號清單後按「健檢報告」');
+  }
+
+  // popup 再次送清單（或 focus 已開視窗時）→ 自動重新翻譯
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'session') return;
+    const c = changes[CXR_LIST_KEY];
+    if (c && c.newValue && c.newValue.text) cxrRunFromText(c.newValue.text);
   });
 });
