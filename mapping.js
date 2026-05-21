@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-21T00:25:30.673Z
+// Synced at: 2026-05-21T03:05:13.058Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -875,6 +875,26 @@ const CATALOG = [
     category:'檢查',
     unit:'', ref:'', lo:null, hi:null },
 
+  // 健檢影像三項 — TASK_BRIEF_health_check_cxr S1 補充（2026-05-21）。與 CXR
+  // 同為 track-only「檢查」,健檢報告視窗（cxr.html）批次抓取 + LLM 翻譯。
+  // order name 範例：`PE Whole Body Bone density scan` / `PE85 Coronary
+  // Calcium Score CT` / `PE Low Dose Chest CT`。pattern 抓 order name 不誤命中
+  // `PE CXR`（CXR）或 `Chest Left oblique`（其他胸部影像）。
+  { id:'BMD',  displayName:'骨質密度 (BMD)', shortLabel:'BMD',
+    pattern: /Bone\s+density/i,
+    category:'檢查',
+    unit:null, ref:null, lo:null, hi:null },
+
+  { id:'CAC',  displayName:'冠狀動脈鈣化 (CAC)', shortLabel:'CAC',
+    pattern: /Coronary\s+Calcium/i,
+    category:'檢查',
+    unit:null, ref:null, lo:null, hi:null },
+
+  { id:'LDCT', displayName:'低劑量肺部CT (LDCT)', shortLabel:'LDCT',
+    pattern: /Low\s+Dose\s+Chest\s+CT/i,
+    category:'檢查',
+    unit:null, ref:null, lo:null, hi:null },
+
 ];
 
 // ─── Exports (CommonJS + browser global) ─────────────────────────────────
@@ -1097,5 +1117,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-21T00:25:30.673Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-21T03:05:13.058Z";
 }

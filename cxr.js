@@ -1,14 +1,19 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════════════════════════
-// cxr.js — 健檢 CXR 批次翻譯（獨立視窗，由 popup / dashboard 開啟）。
+// cxr.js — 健檢報告批次翻譯（獨立視窗，由 popup / dashboard 開啟）。
 //
-// 流程：textarea 病歷號 → 第一階段 batch fetch（concurrency 3）每人 reuse
-// lab-core loadData → 找最近一筆 CXR order（catalog `CXR` pattern match
-// orderName）→ 子頁面 OpdOrderReport.aspx 取「報告內容：」英文 free text →
-// 第二階段 batch translate（concurrency 5）每筆 reportText 經 llm-translate
-// （mock / gemini / claude / openai）→ IndexedDB cxrTranslations 快取 → render
-// 表格（狀態 🔴/✅/⚠️、摘要 truncate+tooltip、異常項目）→ 排序/篩選/列印。
+// 涵蓋四類健檢影像：CXR / BMD（骨密）/ CAC（冠脈鈣化）/ LDCT（低劑量肺CT），
+// 各自對應 catalog track-only pattern（match orderName）。
+//
+// 清單來自 popup → chrome.storage.session 'cxr_chartlist'。
+// 第一階段 batch fetch（concurrency 3）每人 reuse lab-core loadData → 四種
+// pattern 各取最近一筆 order（每種一列,最多 4 列;沒有就不出該列）→ 子頁面
+// OpdOrderReport.aspx 取「報告內容：」之後 free text（去表頭）。
+// 第二階段 batch translate（concurrency 5）每列 reportText 經 llm-translate
+// （mock / gemini / claude / openai）→ IndexedDB cxrTranslations 快取 →
+// render 6 欄表格（病歷號 / 檢查類型 / 開單日期 / 檢查日期 / 原始內容 / 摘要）
+// → 檢查類型 + 異常/無報告 篩選 / group 排序 / 統計列 / 列印。
 //
 // 本檔不自己 fetch / 開 DB,呼叫 lab-core 的 loadData / buildSubpageUrl /
 // fetchSubpageText / enrichCacheGet/Put / cxrTxGet/cxrTxPut,翻譯呼叫
@@ -91,14 +96,47 @@ function cxrRelTime(twDate) {
   return `${Math.round(days / 30)}個月前`;
 }
 
-// ─── 子頁面報告 text 擷取 ───────────────────────────────────────────────
-// 子頁面 textContent 含「檢查項目：… IMPRESSION：… 報告內容：> line > line …」。
-// 取「報告內容：」之後的英文 free text;每行以 `>` 開頭 → 切成多行。
+// ─── 四類健檢影像 ───────────────────────────────────────────────────────
+// 每種對應 catalog 的 track-only pattern（match orderName）。排序序決定同病人
+// 內各列的呈現順序（CXR → BMD → CAC → LDCT）。
+const CXR_EXAM_TYPES = [
+  { id: 'CXR',  order: 0 },
+  { id: 'BMD',  order: 1 },
+  { id: 'CAC',  order: 2 },
+  { id: 'LDCT', order: 3 },
+];
+function cxrExamOrder(id) {
+  const e = CXR_EXAM_TYPES.find(x => x.id === id);
+  return e ? e.order : 99;
+}
+
+// ─── 子頁面報告 text 擷取（去表頭） ─────────────────────────────────────
+// 子頁面 textContent 含「索引號/姓名/性別/科別/判讀醫師/簽收時間/報告時間/
+// 申請序號/檢查項目/IMPRESSION … 報告內容：> line > line …」。
+// 主路徑：取「報告內容：」之後的 free text（表頭天然被排除）。
+// 備援：沒有「報告內容：」分隔時（BMD/CAC/LDCT 子頁面格式可能不同）,逐行
+// 去掉已知表頭欄位行,留其餘 free text。
+const CXR_HEADER_LABELS = [
+  '索引號', '姓名', '姓 名', '性別', '性 別', '科別', '科 別',
+  '判讀醫師', '簽收時間', '報告時間', '申請序號', '檢查項目', 'IMPRESSION',
+];
+function cxrStripHeaderLines(text) {
+  return text.split(/\r?\n/).filter(line => {
+    const t = line.trim();
+    if (!t) return false;
+    const compact = t.replace(/\s/g, '');
+    return !CXR_HEADER_LABELS.some(lbl => {
+      const l = lbl.replace(/\s/g, '');
+      return compact.startsWith(l) || t.startsWith(lbl);
+    });
+  }).join('\n');
+}
 function cxrExtractReportText(subpageText) {
   if (!subpageText) return '';
+  let body;
   const m = subpageText.match(/報告內容[：:]\s*([\s\S]*)/);
-  if (!m) return '';
-  let body = m[1];
+  if (m) body = m[1];
+  else   body = cxrStripHeaderLines(subpageText);
   // 去掉子頁面尾端可能的版面雜訊
   body = body.split(/列印日期|報告醫師|登打人員|頁次/)[0];
   // 以 `>` 標記切行（DOMParser textContent 可能把換行壓掉,故優先用 >）
@@ -107,48 +145,58 @@ function cxrExtractReportText(subpageText) {
   return body.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join('\n');
 }
 
-// ─── 第一階段：抓單人 CXR order + 報告 text ─────────────────────────────
+// ─── 子頁面 fetch（快取優先） ───────────────────────────────────────────
+async function cxrFetchSubpage(ordapno, chartno) {
+  if (!ordapno) return '';
+  let text = null;
+  try { text = await enrichCacheGet(ordapno); } catch (_) {}
+  if (text) return text;
+  const url = buildSubpageUrl(ordapno, chartno);
+  if (!url) return '';
+  try {
+    text = await fetchSubpageText(url);
+    if (text) { try { await enrichCachePut(ordapno, text); } catch (_) {} }
+  } catch (_) { return ''; }
+  return text || '';
+}
+
+// ─── 第一階段：抓單人四類影像（每種最近一筆）→ 回傳 rows[] ──────────────
 async function cxrFetchPatient(rawChart) {
   const chartno = formatChartNo(rawChart);   // lab-core
   const data = await loadData(chartno, false, () => {});
   const orders = data.allOrders || [...(data.lab || []), ...(data.rad || [])];
   const patientInfo = data.patientInfo || { chartno, name: '', gender: '', age: '' };
 
-  const def = cxrCatById('CXR');
-  const matches = orders
-    .filter(o => def && def.pattern.test(o.orderName || ''))
-    .sort((a, b) => cxrOrderSortKey(b).localeCompare(cxrOrderSortKey(a)));
-  const cxr = matches[0];
+  const rows = [];
+  for (const et of CXR_EXAM_TYPES) {
+    const def = cxrCatById(et.id);
+    if (!def || !def.pattern) continue;
+    const matches = orders
+      .filter(o => def.pattern.test(o.orderName || ''))
+      .sort((a, b) => cxrOrderSortKey(b).localeCompare(cxrOrderSortKey(a)));
+    const ord = matches[0];
+    if (!ord) continue;   // 沒有該檢查 → 不顯示那列
 
-  if (!cxr) {
-    return { chartno, patientInfo, status: 'noReport', cxrDate: '', ordapno: '', reportText: '' };
+    const subpageText = await cxrFetchSubpage(ord.ordapno, chartno);
+    const reportText = cxrExtractReportText(subpageText);
+    rows.push({
+      chartno, patientInfo,
+      examType:  et.id,
+      examName:  ord.orderName || '',
+      orderDate: ord.orderDate || cxrResdttmToTaiwan(ord.resdttm) || '',  // 生效時間
+      examDate:  ord.receiveDate || '',                                   // 簽收時間
+      ordapno:   ord.ordapno || '',
+      reportText,
+      status:    reportText ? 'pending' : 'noReport',
+      translation: null,
+    });
   }
 
-  const cxrDate = cxrResdttmToTaiwan(cxr.resdttm) || cxr.orderDate || '';
-  let subpageText = null;
-  if (cxr.ordapno) {
-    try { subpageText = await enrichCacheGet(cxr.ordapno); } catch (_) {}
-    if (!subpageText) {
-      const url = buildSubpageUrl(cxr.ordapno, chartno);
-      if (url) {
-        try {
-          subpageText = await fetchSubpageText(url);
-          if (subpageText) { try { await enrichCachePut(cxr.ordapno, subpageText); } catch (_) {} }
-        } catch (_) {}
-      }
-    }
+  if (!rows.length) {
+    // 四種都沒有 → 一列佔位,避免病人靜默消失
+    return [{ chartno, patientInfo, examType: '', examName: '', orderDate: '', examDate: '', ordapno: '', reportText: '', status: 'noReport', translation: null }];
   }
-  const reportText = cxrExtractReportText(subpageText);
-
-  return {
-    chartno,
-    patientInfo,
-    status: reportText ? 'pending' : 'noReport',
-    cxrDate,
-    ordapno: cxr.ordapno || '',
-    orderName: cxr.orderName || '',
-    reportText,
-  };
+  return rows;
 }
 
 // ─── 第二階段：翻譯單筆（先查快取，provider/model 不符才重打） ─────────
@@ -209,72 +257,105 @@ async function cxrRunPool(items, worker, concurrency, onDone) {
 
 // ─── State ─────────────────────────────────────────────────────────────
 const cxrState = {
-  results: [],
-  sortKey: 'status',
+  results: [],            // 每列 = 一個病人的一種檢查（CXR/BMD/CAC/LDCT）
+  sortKey: 'group',       // 預設：病歷號 group + 檢查類型序
   sortDir: 'asc',
   filterAbnormal: false,
   filterNoreport: false,
+  filterExam: 'all',      // all | CXR | BMD | CAC | LDCT
 };
 
-// 狀態排序權重：異常優先 → 無報告 → 正常 → 錯誤
-const CXR_STATUS_WEIGHT = { abnormal: 0, noReport: 1, normal: 2, error: 3, pending: 4 };
+const CXR_EXAM_BADGE = {
+  CXR:  { label: 'CXR',  cls: 'badge-cxr'  },
+  BMD:  { label: 'BMD',  cls: 'badge-bmd'  },
+  CAC:  { label: 'CAC',  cls: 'badge-cac'  },
+  LDCT: { label: 'LDCT', cls: 'badge-ldct' },
+};
 
-// ─── Render ─────────────────────────────────────────────────────────────
-function cxrStatusCell(status) {
-  switch (status) {
-    case 'abnormal': return '<span class="st-abnormal">🔴 異常</span>';
-    case 'normal':   return '<span class="st-normal">✅ 正常</span>';
-    case 'noReport': return '<span class="st-noreport">⚠️ 無報告</span>';
-    case 'error':    return '<span class="st-error">⚠️ 錯誤</span>';
-    default:         return '<span class="st-error">—</span>';
-  }
+// ─── Render：cell helpers ───────────────────────────────────────────────
+function cxrExamBadge(examType) {
+  const b = CXR_EXAM_BADGE[examType];
+  if (!b) return '<span class="finding-none">—</span>';
+  return `<span class="badge ${b.cls}">${b.label}</span>`;
+}
+
+function cxrRawCell(row) {
+  const t = row.reportText || '';
+  if (!t) return '<span class="finding-none">—</span>';
+  return `<div class="clip2" title="${cxrEsc(t)}">${cxrEsc(t)}</div>`;
 }
 
 function cxrSummaryCell(row) {
-  if (row.status === 'noReport') return '<span class="finding-none">—</span>';
-  if (row.status === 'error') {
-    return `<span class="st-error">翻譯失敗：${cxrEsc(row.translation?.error || '')}</span>`;
-  }
-  const s = row.translation?.summary || '';
-  if (!s) return '<span class="finding-none">—</span>';
-  return `<div class="summary-clip" title="${cxrEsc(s)}">${cxrEsc(s)}</div>`;
-}
-
-function cxrFindingsCell(row) {
-  const abn = (row.translation?.findings || []).filter(f => f.status === 'abnormal');
-  if (!abn.length) return '<span class="finding-none">—</span>';
-  return abn.map(f =>
-    `<span class="finding-abn">🔴 ${cxrEsc(f.item)}${f.detail ? '：' + cxrEsc(f.detail) : ''}</span>`
-  ).join('');
+  if (row.status === 'noReport') return '<span class="st-noreport">⚠️ 無報告</span>';
+  if (row.status === 'error')    return `<span class="st-error">⚠️ 翻譯失敗：${cxrEsc(row.translation?.error || '')}</span>`;
+  if (row.status === 'pending')  return '<span class="finding-none">翻譯中…</span>';
+  const tx = row.translation || {};
+  const s = tx.summary || '';
+  const abn = (tx.findings || []).filter(f => f.status === 'abnormal');
+  const icon = row.status === 'abnormal' ? '🔴' : '✅';
+  const tip = s + (abn.length ? '\n異常：' + abn.map(f => f.item + (f.detail ? '(' + f.detail + ')' : '')).join('、') : '');
+  const cls = row.status === 'abnormal' ? 'summary-abn' : '';
+  // .abn-list 只在列印時顯示（螢幕靠 clip2 + tooltip）
+  const abnList = abn.length
+    ? `<div class="abn-list">${abn.map(f => `🔴 ${cxrEsc(f.item)}${f.detail ? '：' + cxrEsc(f.detail) : ''}`).join('<br>')}</div>`
+    : '';
+  return `<div class="clip2 ${cls}" title="${cxrEsc(tip)}">${icon} ${cxrEsc(s || '—')}</div>${abnList}`;
 }
 
 function cxrCompare(a, b, key) {
+  // group：病歷號 asc → 檢查類型序 asc
+  if (key === 'group') {
+    const c = String(a.chartno || '').localeCompare(String(b.chartno || ''));
+    return c !== 0 ? c : cxrExamOrder(a.examType) - cxrExamOrder(b.examType);
+  }
   function lift(r) {
-    if (!r || r.error) return null;
     switch (key) {
-      case 'chartno': return r.chartno || '';
-      case 'name':    return r.patientInfo?.name || '';
-      case 'cxrDate': return r.cxrDate || '';
-      case 'status':  return CXR_STATUS_WEIGHT[r.status] ?? 9;
-      case 'summary': return r.translation?.summary || '';
-      case 'findings':return (r.translation?.findings || []).filter(f => f.status === 'abnormal').length;
-      default:        return '';
+      case 'chartno':   return r.chartno || '';
+      case 'examType':  return cxrExamOrder(r.examType);
+      case 'orderDate': return r.orderDate || '';
+      case 'examDate':  return r.examDate || '';
+      case 'raw':       return r.reportText || '';
+      case 'summary':   return r.translation?.summary || '';
+      default:          return '';
     }
   }
   const va = lift(a), vb = lift(b);
-  if (va == null && vb == null) return 0;
-  if (va == null) return 1;
-  if (vb == null) return -1;
-  if (typeof va === 'number' && typeof vb === 'number') return va - vb;
-  return String(va).localeCompare(String(vb));
+  let base = (typeof va === 'number' && typeof vb === 'number')
+    ? va - vb
+    : String(va).localeCompare(String(vb));
+  if (base !== 0) return base;
+  // tiebreak：病歷號 + 檢查類型序（維持 group 感）
+  const c = String(a.chartno || '').localeCompare(String(b.chartno || ''));
+  return c !== 0 ? c : cxrExamOrder(a.examType) - cxrExamOrder(b.examType);
+}
+
+function cxrRenderStats() {
+  const el = document.getElementById('cxr-stats');
+  if (!el) return;
+  const rows = cxrState.results;
+  if (!rows.length) { el.textContent = ''; return; }
+  const patients = new Set(rows.map(r => r.chartno)).size;
+  const cnt = { CXR: 0, BMD: 0, CAC: 0, LDCT: 0 };
+  let abn = 0, none = 0, err = 0;
+  rows.forEach(r => {
+    if (cnt[r.examType] != null) cnt[r.examType]++;
+    if (r.status === 'abnormal') abn++;
+    else if (r.status === 'noReport') none++;
+    else if (r.status === 'error') err++;
+  });
+  el.innerHTML =
+    `完成 <b>${patients}</b> 位 · CXR <b>${cnt.CXR}</b> / BMD <b>${cnt.BMD}</b> / CAC <b>${cnt.CAC}</b> / LDCT <b>${cnt.LDCT}</b> 筆` +
+    ` · 🔴異常 <b>${abn}</b> · ⚠️無報告 <b>${none}</b>` + (err ? ` · 錯誤 <b>${err}</b>` : '');
 }
 
 function cxrRenderTable() {
+  cxrRenderStats();
   const tbody = document.getElementById('result-body');
   let rows = cxrState.results.slice();
 
-  if (cxrState.filterAbnormal) rows = rows.filter(r => r && r.status === 'abnormal');
-  if (cxrState.filterNoreport) rows = rows.filter(r => r && r.status === 'noReport');
+  if (cxrState.filterExam !== 'all') rows = rows.filter(r => r.examType === cxrState.filterExam);
+  if (cxrState.filterAbnormal)       rows = rows.filter(r => r.status === 'abnormal');
+  if (cxrState.filterNoreport)       rows = rows.filter(r => r.status === 'noReport');
 
   rows.sort((a, b) => {
     const c = cxrCompare(a, b, cxrState.sortKey);
@@ -283,28 +364,28 @@ function cxrRenderTable() {
 
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="6" class="empty-table">無資料</td></tr>';
-    return;
+  } else {
+    tbody.innerHTML = rows.map(r => {
+      if (r.status === 'error') {
+        return `<tr class="row-error"><td class="col-chartno">${cxrEsc(r.chartno)}</td><td colspan="5">⚠️ ${cxrEsc(r.error || '錯誤')}</td></tr>`;
+      }
+      const name = r.patientInfo?.name || '';
+      const orderCell = r.orderDate ? cxrEsc(r.orderDate) : '<span class="finding-none">—</span>';
+      const examCell = r.examDate
+        ? `${cxrEsc(r.examDate)}<span class="rel">${cxrEsc(cxrRelTime(r.examDate))}</span>`
+        : '<span class="finding-none">—</span>';
+      return (
+        `<tr>` +
+          `<td class="col-chartno">${cxrEsc(r.chartno)}${name ? `<span class="pt-name">${cxrEsc(name)}</span>` : ''}</td>` +
+          `<td>${cxrExamBadge(r.examType)}</td>` +
+          `<td>${orderCell}</td>` +
+          `<td>${examCell}</td>` +
+          `<td class="raw-cell">${cxrRawCell(r)}</td>` +
+          `<td class="summary-cell">${cxrSummaryCell(r)}</td>` +
+        `</tr>`
+      );
+    }).join('');
   }
-
-  tbody.innerHTML = rows.map(r => {
-    if (r.error) {
-      return `<tr class="row-error"><td class="col-chartno">${cxrEsc(r.chartno)}</td><td colspan="5">⚠️ ${cxrEsc(r.error)}</td></tr>`;
-    }
-    const name = r.patientInfo?.name || '';
-    const dateCell = r.cxrDate
-      ? `<div>${cxrEsc(r.cxrDate)}</div><span style="color:#7f8c8d;font-size:10px;">${cxrEsc(cxrRelTime(r.cxrDate))}</span>`
-      : '<span class="finding-none">—</span>';
-    return (
-      `<tr>` +
-        `<td class="col-chartno">${cxrEsc(r.chartno)}</td>` +
-        `<td>${cxrEsc(name)} <span style="color:#7f8c8d;font-size:10px;">${cxrEsc((r.patientInfo?.gender||'')+' '+(r.patientInfo?.age||''))}</span></td>` +
-        `<td>${dateCell}</td>` +
-        `<td class="col-status">${cxrStatusCell(r.status)}</td>` +
-        `<td class="summary-cell">${cxrSummaryCell(r)}</td>` +
-        `<td class="findings-cell">${cxrFindingsCell(r)}</td>` +
-      `</tr>`
-    );
-  }).join('');
 
   document.querySelectorAll('table.cxr thead th').forEach(th => {
     th.classList.remove('sort-asc', 'sort-desc');
@@ -340,44 +421,52 @@ async function cxrRunFromText(rawText) {
     return;
   }
 
-  cxrSetStatus(`第一階段：抓取 ${uniq.length} 位病人的 CXR order…`);
+  cxrSetStatus(`第一階段：抓取 ${uniq.length} 位病人的四類影像 order…`);
   cxrSetProgress(0, uniq.length, '抓取');
 
-  // 第一階段：fetch（concurrency 3 — ernode）
-  const rows = uniq.map(c => ({ chartno: c }));
-  await cxrRunPool(rows, async (row, i) => {
-    try { rows[i] = await cxrFetchPatient(row.chartno); }
-    catch (e) { rows[i] = { chartno: row.chartno, error: e && e.message ? e.message : String(e) }; }
+  // 第一階段：fetch（concurrency 3 — ernode）。每人回傳 rows[]（每種檢查一列）。
+  const perPatient = new Array(uniq.length).fill(null);
+  await cxrRunPool(uniq, async (chartno, i) => {
+    try { perPatient[i] = await cxrFetchPatient(chartno); }
+    catch (e) { perPatient[i] = [{ chartno, examType: '', status: 'error', error: e && e.message ? e.message : String(e) }]; }
   }, 3, (d, t) => cxrSetProgress(d, t, '抓取'));
 
-  cxrState.results = rows;
+  cxrState.results = perPatient.flat().filter(Boolean);
   cxrRenderTable();
 
-  // 第二階段：translate（concurrency 5 — LLM）只翻有報告的
-  const toTranslate = rows.filter(r => r && r.status === 'pending' && r.reportText);
+  // 第二階段：translate（concurrency 5 — LLM）只翻有報告的列
+  const toTranslate = cxrState.results.filter(r => r.status === 'pending' && r.reportText);
   if (toTranslate.length) {
-    cxrSetStatus(`第二階段：翻譯 ${toTranslate.length} 筆 CXR 報告（provider: ${cxrSettings.provider}）…`);
+    cxrSetStatus(`第二階段：翻譯 ${toTranslate.length} 筆報告（provider: ${cxrSettings.provider}）…`);
     cxrSetProgress(0, toTranslate.length, '翻譯');
     await cxrRunPool(toTranslate, async (row) => { await cxrTranslateRow(row); }, 5,
       (d, t) => { cxrSetProgress(d, t, '翻譯'); cxrRenderTable(); });
   }
 
   cxrRenderTable();
-  const abn = rows.filter(r => r && r.status === 'abnormal').length;
-  const none = rows.filter(r => r && r.status === 'noReport').length;
-  const err = rows.filter(r => r && (r.status === 'error' || r.error)).length;
-  cxrSetStatus(`完成：${uniq.length} 位 · 🔴異常 ${abn} · ⚠️無報告 ${none}` + (err ? ` · 錯誤 ${err}` : '') + '。表格 header 可點擊排序。');
-}
-
-// ─── 列印 ───────────────────────────────────────────────────────────────
-function cxrPrint() {
-  const rows = cxrState.results.filter(r => r && !r.error);
+  const rows = cxrState.results;
+  const patients = new Set(rows.map(r => r.chartno)).size;
   const abn = rows.filter(r => r.status === 'abnormal').length;
   const none = rows.filter(r => r.status === 'noReport').length;
+  const err = rows.filter(r => r.status === 'error').length;
+  cxrSetStatus(`完成：${patients} 位 · ${rows.length} 列 · 🔴異常 ${abn} · ⚠️無報告 ${none}` + (err ? ` · 錯誤 ${err}` : '') + '。表格 header 可點擊排序。');
+}
+
+// ─── 列印（完整內容 + 摘要,異常紅字;頁首含各類檢查統計） ──────────────
+function cxrPrint() {
+  const rows = cxrState.results;
+  const patients = new Set(rows.map(r => r.chartno)).size;
+  const cnt = { CXR: 0, BMD: 0, CAC: 0, LDCT: 0 };
+  let abn = 0, none = 0;
+  rows.forEach(r => {
+    if (cnt[r.examType] != null) cnt[r.examType]++;
+    if (r.status === 'abnormal') abn++;
+    else if (r.status === 'noReport') none++;
+  });
   const today = new Date();
   const dateStr = `${today.getFullYear() - 1911}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('print-meta').textContent =
-    `列印日期 ${dateStr} ｜ 總人數 ${rows.length} ｜ 🔴異常 ${abn} ｜ ⚠️無報告 ${none}`;
+    `列印日期 ${dateStr} ｜ ${patients} 位 ｜ CXR ${cnt.CXR} / BMD ${cnt.BMD} / CAC ${cnt.CAC} / LDCT ${cnt.LDCT} ｜ 🔴異常 ${abn} ｜ ⚠️無報告 ${none}`;
   window.print();
 }
 
@@ -482,6 +571,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     cxrState.filterNoreport = e.target.checked;
     if (e.target.checked) { cxrState.filterAbnormal = false; document.getElementById('filter-abnormal').checked = false; }
     cxrRenderTable();
+  });
+  document.querySelectorAll('input[name="filter-exam"]').forEach(radio => {
+    radio.addEventListener('change', e => {
+      if (e.target.checked) { cxrState.filterExam = e.target.value; cxrRenderTable(); }
+    });
   });
 
   document.querySelectorAll('table.cxr thead th').forEach(th => {

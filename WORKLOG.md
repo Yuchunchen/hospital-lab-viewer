@@ -1,5 +1,28 @@
 # WORKLOG
 
+## 2026-05-21 — 健檢報告擴充：CXR → 四類影像（CXR/BMD/CAC/LDCT）+ 新欄位
+
+- 作者：claude（與 YC 共同）
+- 範圍：cxr（html + js）
+- 變更：修改
+- 檔案：
+  - `cxr.js`：
+    - `CXR_EXAM_TYPES`（CXR/BMD/CAC/LDCT + 排序序）+ `cxrExamOrder()`。
+    - `cxrFetchPatient` 改為每人對 4 種 pattern 各取最近一筆 order → 回傳 rows[]（每種一列，最多 4 列；沒有就不出該列；四種全無 → 一列佔位 status=noReport，避免病人靜默消失）。`cxrFetchSubpage()` 抽出（快取優先）。
+    - `cxrExtractReportText` 強化：主路徑取「報告內容：」之後；備援 `cxrStripHeaderLines()` 逐行去掉索引號/姓名/性別/科別/判讀醫師/簽收時間/報告時間/申請序號/檢查項目/IMPRESSION（給 BMD/CAC/LDCT 子頁面格式不同時用）。
+    - render 改 6 欄：病歷號（含姓名小字）/ 檢查類型（badge）/ 開單日期（orderDate=生效時間）/ 檢查日期（examDate=簽收時間）/ 原始內容（clip2+tooltip，列印展開）/ 摘要（🔴/✅+clip2，異常紅字，異常項目折入 tooltip + 列印展開 .abn-list）。
+    - `cxrCompare` 加 `group`（病歷號→檢查類型序，預設）及各欄排序，tiebreak 維持 group 感。
+    - `cxrRenderStats()` 統計列：完成 X 位 · CXR/BMD/CAC/LDCT 各筆數 · 異常 · 無報告。`cxrPrint` 頁首加各類統計。
+    - 翻譯仍 per-row（ordapno 為 key）走 IndexedDB cxrTranslations 快取，邏輯不變。
+  - `cxr.html`：標題改「健檢報告（CXR/BMD/CAC/LDCT）」；控制列加檢查類型 radio（全部/CXR/BMD/CAC/LDCT），保留只看異常/只看無報告；加 `#cxr-stats` 統計列；thead 改 6 欄；badge / clip2 / abn-list / raw-cell CSS；列印展開 clip2 + 顯示 .abn-list 紅字。
+- 原因：`TASK_BRIEF_health_check_cxr` S2 擴充 — 健檢報告從只看 CXR 擴大到四類影像，依賴 patterns 已發版的 BMD/CAC/LDCT pattern（同日 patterns commit 11aebaf）。
+- 測試：
+  - `node --check cxr.js / llm-translate.js` 通過。
+  - eval-load node 實測（shim window/document/chrome）：CXR 子頁面「報告內容：」primary 擷取正確（去表頭 + 去列印日期尾）；BMD 無「報告內容：」走 fallback，10 個表頭欄位全剝除只留 free text；examOrder 0/1/2/3；group 排序＝病歷號→檢查類型序；examDate desc 排序正確。
+  - grep 確認無殘留舊 class（summary-clip/findings-cell/col-status 等）。
+  - 待手動測（院內網）：BMD/CAC/LDCT 子頁面真實格式、4 種同時 fetch、列印 A4 版面、檢查類型 filter。
+- 相依：patterns BMD/CAC/LDCT pattern（commit 11aebaf）；純 viewer，不需 reporter sync。
+
 ## 2026-05-21 — UI 重構：popup 統一入口 + 按鈕改名 + Dashboard/CXR 移除輸入區
 
 - 作者：claude（與 YC 共同）

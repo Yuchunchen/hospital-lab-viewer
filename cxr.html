@@ -106,22 +106,40 @@
     table.cxr tbody tr.row-error { background: #fdecea; color: #c0392b; }
 
     .col-chartno { font-family: monospace; font-weight: 600; white-space: nowrap; }
-    .col-status { text-align: center; white-space: nowrap; font-weight: 600; }
-    .st-abnormal { color: #c0392b; }
-    .st-normal   { color: #1e8449; }
-    .st-noreport { color: #b9770e; }
+    .col-chartno .pt-name { display: block; font-family: inherit; font-weight: 400; color: #4a5568; font-size: 11px; }
+    .st-noreport { color: #b9770e; font-weight: 600; }
     .st-error    { color: #7f8c8d; }
+    .rel { display: block; color: #7f8c8d; font-size: 10px; }
 
-    .summary-cell {
-      max-width: 380px;
-    }
-    .summary-clip {
+    /* 檢查類型 badge */
+    .badge { display: inline-block; padding: 1px 8px; border-radius: 9px; font-size: 11px; font-weight: 600; }
+    .badge-cxr  { background: #ebdef0; color: #6c3483; }
+    .badge-bmd  { background: #d4efdf; color: #1e8449; }
+    .badge-cac  { background: #fdebd0; color: #b9770e; }
+    .badge-ldct { background: #d6eaf8; color: #1a5276; }
+
+    /* 原始內容 / 摘要：螢幕上 clip 2 行 + tooltip,列印展開 */
+    .raw-cell { max-width: 360px; }
+    .raw-cell .clip2 { font-size: 11px; color: #34495e; white-space: pre-line; }
+    .summary-cell { max-width: 320px; }
+    .clip2 {
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
       overflow: hidden; line-height: 1.4;
     }
-    .findings-cell { max-width: 260px; }
-    .finding-abn { color: #c0392b; font-weight: 600; display: block; line-height: 1.4; }
+    .summary-abn { color: #c0392b; font-weight: 600; }
+    .abn-list { display: none; color: #c0392b; font-weight: 600; font-size: 11px; line-height: 1.4; margin-top: 2px; }
     .finding-none { color: #95a5a6; }
+
+    /* 檢查類型 filter */
+    .exam-filter { font-size: 12px; color: #4a5568; }
+    .exam-filter label { margin-right: 2px; cursor: pointer; }
+    .exam-filter label input { vertical-align: middle; margin-right: 2px; }
+
+    #cxr-stats {
+      padding: 6px 16px; font-size: 12px; color: #4a235a;
+      background: #f8f3fb; border-bottom: 1px solid #e8daef; min-height: 0;
+    }
+    #cxr-stats:empty { display: none; }
 
     .empty-table { padding: 24px; text-align: center; color: #95a5a6; font-style: italic; }
 
@@ -163,18 +181,19 @@
     @media print {
       @page { size: A4 portrait; margin: 12mm; }
       body { background: #fff; min-width: 0; font-size: 11px; }
-      .header, .input-panel, #status, .gear, .modal-backdrop { display: none !important; }
+      .header, .input-panel, #status, #cxr-stats, .gear, .modal-backdrop { display: none !important; }
       .print-head { display: block; margin-bottom: 10px; }
       .print-head h1 { font-size: 16px; }
       .print-head .meta { font-size: 12px; color: #333; margin-top: 4px; }
       .table-wrap { overflow: visible; }
       table.cxr thead th { position: static; background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       table.cxr tbody tr:hover { background: none; }
-      /* 列印時完整顯示摘要,不 clip */
-      .summary-clip { display: block; -webkit-line-clamp: unset; overflow: visible; }
-      .summary-cell, .findings-cell { max-width: none; }
-      .finding-abn { color: #c0392b !important; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .col-action, th.col-action { display: none; }
+      /* 列印時原始內容 + 摘要完整顯示,不 clip */
+      .clip2 { display: block; -webkit-line-clamp: unset; overflow: visible; }
+      .raw-cell, .summary-cell { max-width: none; }
+      .summary-abn { color: #c0392b !important; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .abn-list { display: block; color: #c0392b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       table.cxr tbody tr { page-break-inside: avoid; }
     }
   </style>
@@ -182,14 +201,22 @@
 <body>
   <div class="header">
     <span>🩻</span>
-    <h1>健檢 CXR 批次翻譯</h1>
+    <h1>健檢報告（CXR / BMD / CAC / LDCT）</h1>
     <span class="provider-badge" id="provider-badge">provider: —</span>
     <span class="gear" id="gear-btn" title="LLM 設定">⚙️</span>
   </div>
 
   <div class="input-panel">
     <div class="source-row">
-      <button id="print-btn" title="列印（完整摘要、異常紅字）">🖨️ 列印</button>
+      <button id="print-btn" title="列印（完整內容＋摘要、異常紅字）">🖨️ 列印</button>
+      <span class="exam-filter">
+        檢查類型：
+        <label><input type="radio" name="filter-exam" value="all" checked /> 全部</label>
+        <label><input type="radio" name="filter-exam" value="CXR" /> CXR</label>
+        <label><input type="radio" name="filter-exam" value="BMD" /> BMD</label>
+        <label><input type="radio" name="filter-exam" value="CAC" /> CAC</label>
+        <label><input type="radio" name="filter-exam" value="LDCT" /> LDCT</label>
+      </span>
       <span class="spacer"></span>
       <label><input type="checkbox" id="filter-abnormal" /> 只看異常</label>
       <label><input type="checkbox" id="filter-noreport" /> 只看無報告</label>
@@ -201,9 +228,10 @@
   </div>
 
   <div id="status"></div>
+  <div id="cxr-stats"></div>
 
   <div class="print-head">
-    <h1>健檢 CXR 報告摘要</h1>
+    <h1>健檢影像報告摘要</h1>
     <div class="meta" id="print-meta"></div>
   </div>
 
@@ -212,11 +240,11 @@
       <thead>
         <tr>
           <th data-key="chartno">病歷號</th>
-          <th data-key="name">姓名</th>
-          <th data-key="cxrDate">CXR日期</th>
-          <th data-key="status">狀態</th>
-          <th data-key="summary">中文摘要</th>
-          <th data-key="findings">異常項目</th>
+          <th data-key="examType">檢查類型</th>
+          <th data-key="orderDate">開單日期</th>
+          <th data-key="examDate">檢查日期</th>
+          <th data-key="raw">原始內容</th>
+          <th data-key="summary">摘要</th>
         </tr>
       </thead>
       <tbody id="result-body">
