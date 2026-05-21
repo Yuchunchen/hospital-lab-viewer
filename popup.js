@@ -336,6 +336,16 @@ function openDashboardWindow() {
   }
 }
 
+// ─── 健檢 CXR 翻譯 獨立視窗 ─────────────────────────────────────────────
+function openCxrWindow() {
+  const url = chrome.runtime.getURL('cxr.html');
+  if (chrome.windows && chrome.windows.create) {
+    chrome.windows.create({ url, type: 'popup', width: 1200, height: 860 });
+  } else {
+    chrome.tabs.create({ url });
+  }
+}
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
@@ -353,6 +363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('search-btn').addEventListener('click', () => doSearch(false));
   document.getElementById('dashboard-btn')?.addEventListener('click', openDashboardWindow);
+  document.getElementById('cxr-btn')?.addEventListener('click', openCxrWindow);
 
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
