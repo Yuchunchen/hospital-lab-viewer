@@ -74,6 +74,64 @@ function cxrNormalizeResult(obj) {
   return out;
 }
 
+// ─── 共用：fetch + retry + 錯誤分類 ───────────────────────────────────────
+// 分類 LLM HTTP / network 失敗為 friendly kind + 中文訊息（取代各 provider 原本
+// 直接 throw `Gemini HTTP {status}: {body}` 的 raw 文字）。caller 拿回 raw
+// Response 自己 .json()；非 2xx / network 失敗則 throw CxrLlmError。
+//   AUTH    401/403         不 retry — 「API Key 無效或無權限,請點右上 ⚙️ 重設」
+//   RATE    429             retry 2 次（500ms→2000ms backoff）— 「rate limit,稍後重試」
+//   SERVER  5xx             retry 1 次（1000ms backoff）— 「API 暫時無回應」
+//   NETWORK fetch 失敗      retry 1 次 — 「網路錯誤,確認院內網路能連到 LLM API」
+//   CLIENT  其他 4xx        不 retry — 「請求錯誤(HTTP …)」
+class CxrLlmError extends Error {
+  constructor(kind, msg, status, cause) {
+    super(msg);
+    this.kind = kind;  // 'AUTH' | 'RATE' | 'SERVER' | 'CLIENT' | 'NETWORK'
+    this.status = status;
+    this.cause = cause;
+  }
+}
+
+async function cxrFetchWithRetry(url, opts) {
+  let lastErr;
+  const attempts = [
+    { delay: 0,    name: 'initial' },
+    { delay: 500,  name: 'retry-1' },
+    { delay: 2000, name: 'retry-2' },
+  ];
+  for (let i = 0; i < attempts.length; i++) {
+    if (attempts[i].delay) await new Promise(r => setTimeout(r, attempts[i].delay));
+    try {
+      const resp = await fetch(url, opts);
+      if (resp.ok) return resp;
+      // 分類 retry 決定
+      if (resp.status === 401 || resp.status === 403) {
+        throw new CxrLlmError('AUTH', `API Key 無效或無權限,請點右上 ⚙️ 重設`, resp.status);
+      }
+      if (resp.status === 429) {
+        lastErr = new CxrLlmError('RATE', `rate limit,稍後重試`, resp.status);
+        if (i < 2) continue;  // retry 2 次
+        throw lastErr;
+      }
+      if (resp.status >= 500) {
+        lastErr = new CxrLlmError('SERVER', `API 暫時無回應`, resp.status);
+        if (i < 1) continue;  // retry 1 次
+        throw lastErr;
+      }
+      // 4xx 其他 → 不 retry
+      const body = (await resp.text()).slice(0, 200);
+      throw new CxrLlmError('CLIENT', `請求錯誤(HTTP ${resp.status}): ${body}`, resp.status);
+    } catch (e) {
+      if (e instanceof CxrLlmError) throw e;  // 已分類,直接 raise
+      // network / TypeError
+      lastErr = new CxrLlmError('NETWORK', `網路錯誤,確認院內網路能連到 LLM API`, 0, e);
+      if (i < 1) continue;
+      throw lastErr;
+    }
+  }
+  throw lastErr;
+}
+
 // ─── Mock provider：關鍵字啟發,不打網路 ─────────────────────────────────
 // 用一組「異常字根」掃描每行英文報告;命中即標 abnormal 並給中文 detail。
 // 目的不是臨床正確,而是讓 render / 排序 / 篩選 在開發期有真實感的多樣輸出。
@@ -138,12 +196,11 @@ async function cxrGemini(reportText, settings) {
     contents: [{ role: 'user', parts: [{ text: reportText }] }],
     generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
   };
-  const resp = await fetch(url, {
+  const resp = await cxrFetchWithRetry(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!resp.ok) throw new Error(`Gemini HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
   const data = await resp.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   return cxrNormalizeResult(cxrParseModelJson(text));
@@ -152,7 +209,7 @@ async function cxrGemini(reportText, settings) {
 // ─── Claude (Anthropic Messages API) ──────────────────────────────────────
 async function cxrClaude(reportText, settings) {
   const model = settings.model || 'claude-haiku-4-5-20251001';
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  const resp = await cxrFetchWithRetry('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -168,7 +225,6 @@ async function cxrClaude(reportText, settings) {
       messages: [{ role: 'user', content: reportText }],
     }),
   });
-  if (!resp.ok) throw new Error(`Claude HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
   const data = await resp.json();
   const text = Array.isArray(data?.content)
     ? data.content.filter(b => b.type === 'text').map(b => b.text).join('')
@@ -179,7 +235,7 @@ async function cxrClaude(reportText, settings) {
 // ─── OpenAI (Chat Completions) ─────────────────────────────────────────────
 async function cxrOpenai(reportText, settings) {
   const model = settings.model || 'gpt-4o-mini';
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+  const resp = await cxrFetchWithRetry('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -195,7 +251,6 @@ async function cxrOpenai(reportText, settings) {
       temperature: 0.2,
     }),
   });
-  if (!resp.ok) throw new Error(`OpenAI HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
   const data = await resp.json();
   const text = data?.choices?.[0]?.message?.content;
   return cxrNormalizeResult(cxrParseModelJson(text));

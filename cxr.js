@@ -232,6 +232,13 @@ async function cxrFetchPatient(rawChart) {
   return rows;
 }
 
+// ─── IndexedDB cxrTranslations cache 策略（有意行為，勿加 evict） ─────────
+// - 鍵 = ordapno（每筆 order 一筆 cache；store keyPath 即 'ordapno'，見 lab-core.js）
+// - 同 ordapno 切 provider/model → 下方 cxrTranslateRow 不重用舊 record，但
+//   cxrTxPut 仍以 ordapno overwrite（新 provider 的結果覆蓋舊 provider 的）
+// - 不需主動 evict 跨 provider record（本案就靠 overwrite 自然 cap 在 1 筆/ordapno）
+//   若日後 IndexedDB 真大到爆 → 加 ⚙️「清快取」按鈕，而非 lazy evict（避免 race）
+
 // ─── 第二階段：翻譯單筆（先查快取，provider/model 不符才重打） ─────────
 async function cxrTranslateRow(row) {
   if (!row || row.status === 'noReport' || !row.reportText) {
@@ -265,7 +272,7 @@ async function cxrTranslateRow(row) {
     }
   } catch (e) {
     row.status = 'error';
-    row.translation = { error: e && e.message ? e.message : String(e) };
+    row.translation = { error: e && e.message ? e.message : String(e), kind: e?.kind || 'UNKNOWN' };
   }
   return row;
 }
@@ -291,7 +298,7 @@ async function cxrRunPool(items, worker, concurrency, onDone) {
 // ─── State ─────────────────────────────────────────────────────────────
 const cxrState = {
   results: [],            // 每列 = 一個病人的一種檢查（CXR/BMD/CAC/LDCT）
-  sortKey: 'group',       // 預設：病歷號 group + 檢查類型序
+  sortKey: 'abnormal',    // 預設：異常浮頂（同 status 內按病歷號 group + 檢查類型序）
   sortDir: 'asc',
   filterAbnormal: false,
   filterNoreport: false,
@@ -322,7 +329,7 @@ function cxrRawCell(row) {
 function cxrSummaryCell(row) {
   if (row.status === 'noReport') return '<span class="st-noreport">⚠️ 無報告</span>';
   if (row.status === 'error')    return `<span class="st-error">⚠️ 翻譯失敗：${cxrEsc(row.translation?.error || '')}</span>`;
-  if (row.status === 'pending')  return '<span class="finding-none">翻譯中…</span>';
+  if (row.status === 'pending')  return row.skipped ? '<span class="finding-none">—</span>' : '<span class="finding-none">翻譯中…</span>';
   const tx = row.translation || {};
   const s = tx.summary || '';
   const abn = (tx.findings || []).filter(f => f.status === 'abnormal');
@@ -337,6 +344,16 @@ function cxrSummaryCell(row) {
 }
 
 function cxrCompare(a, b, key) {
+  // abnormal：status 浮頂（abnormal=0 > normal/pending=1 > noReport=2 > error=3），
+  // 同 status 內 tie-break 仍按 group（病歷號 asc → 檢查類型序 asc）。
+  if (key === 'abnormal') {
+    const rank = { abnormal: 0, normal: 1, noReport: 2, error: 3, pending: 1 };
+    const ra = rank[a.status] ?? 9;
+    const rb = rank[b.status] ?? 9;
+    if (ra !== rb) return ra - rb;
+    const c = String(a.chartno || '').localeCompare(String(b.chartno || ''));
+    return c !== 0 ? c : cxrExamOrder(a.examType) - cxrExamOrder(b.examType);
+  }
   // group：病歷號 asc → 檢查類型序 asc
   if (key === 'group') {
     const c = String(a.chartno || '').localeCompare(String(b.chartno || ''));
@@ -469,12 +486,26 @@ async function cxrRunFromText(rawText) {
   cxrRenderTable();
 
   // 第二階段：translate（concurrency 5 — LLM）只翻有報告的列
+  // Mode A（provider≠mock 且有 API Key）：自動 batch translate（維持現況）。
+  // Mode B（mock 或 Key 空）：跳過翻譯、摘要留白並提示，不送網路（PHI UX 對齊）。
   const toTranslate = cxrState.results.filter(r => r.status === 'pending' && r.reportText);
-  if (toTranslate.length) {
+  const llmReady = cxrSettings.provider !== 'mock' && !!cxrSettings.apiKey;
+
+  if (toTranslate.length && llmReady) {
     cxrSetStatus(`第二階段：翻譯 ${toTranslate.length} 筆報告（provider: ${cxrSettings.provider}）…`);
     cxrSetProgress(0, toTranslate.length, '翻譯');
     await cxrRunPool(toTranslate, async (row) => { await cxrTranslateRow(row); }, 5,
       (d, t) => { cxrSetProgress(d, t, '翻譯'); cxrRenderTable(); });
+  } else if (toTranslate.length) {
+    // Mode B：LLM 未設定 → 跳過翻譯。pending row 標 skipped（摘要欄留白，不顯「翻譯中…」），
+    // render 後 return，避免落到下方「完成」status 蓋掉本提示。
+    toTranslate.forEach(r => { r.skipped = true; });
+    cxrRenderTable();
+    const reason = cxrSettings.provider === 'mock' ? 'mock 模式'
+                 : !cxrSettings.apiKey ? `${cxrSettings.provider} 無 API Key`
+                 : '未設定';
+    cxrSetStatus(`完成抓取 ${toTranslate.length} 筆。LLM 未設定（${reason}）— 摘要空白。請點右上 ⚙️ 設定 provider + API Key 後重跑。`);
+    return;
   }
 
   cxrRenderTable();

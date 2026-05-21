@@ -1,5 +1,24 @@
 # WORKLOG
 
+## 2026-05-21 — 健檢 CXR S2/S3 polish（Mode B + retry + 異常排序 + cache 行為）
+
+- 作者：claude（與 YC 共同）
+- 範圍：cxr（js）+ llm-translate（js）
+- 變更：修改
+- 檔案：
+  - `cxr.js`：
+    - `cxrRunFromText` 第二階段加 Mode A/B 分流（G1）：Mode A（provider≠mock 且有 API Key）維持自動 batch translate；Mode B（mock 或 Key 空）跳過翻譯、pending row 標 `skipped`（摘要欄留白「—」而非「翻譯中…」），顯示提示 status 後 `return`（避免被下方「完成」status 蓋掉）。
+    - `cxrSummaryCell` pending 分支：`skipped` → 留白「—」。
+    - `cxrCompare` 加 `'abnormal'` sort key（G4）：status 浮頂 abnormal=0 > normal/pending=1 > noReport=2 > error=3，同 status 內 tie-break 按病歷號 + 檢查類型序；`cxrState.sortKey` 預設 `'group'` → `'abnormal'`（進畫面異常浮頂）。
+    - `cxrTranslateRow` catch 改記 `kind`（友善訊息已在 `e.message`）。
+    - cache evict 策略 comment（G3）：cxrTranslations key=ordapno，切 provider/model 不重用但 `cxrTxPut` 以 ordapno overwrite，自然 cap 1 筆/ordapno，不主動 evict（有意行為，勿加 evict）。store keyPath 經確認已是 `ordapno`，故 lab-core.js / DB_VER 不動。
+  - `llm-translate.js`（G2）：
+    - 加 `CxrLlmError`（kind: AUTH/RATE/SERVER/CLIENT/NETWORK）+ `cxrFetchWithRetry`（401/403 不 retry；429 retry 2 次 500ms→2000ms；5xx / network retry 1 次；其他 4xx 不 retry），回傳友善中文訊息取代原 raw `Gemini HTTP {status}: {body}`。
+    - `cxrGemini` / `cxrClaude` / `cxrOpenai` 的 `fetch` 換成 `cxrFetchWithRetry`，移除各自 `if (!resp.ok) throw`。
+- 原因：G1 避免 mock / 無 Key 時自動 batch 造成困惑、UX 對齊 PHI 不外流；G2 transient 5xx/429 不再永久變 error row、錯誤訊息友善化；G3 文件化既有 cache 行為（避免日後誤加 evict）；G4 異常個案一眼可辨（parent brief S3 成功標準）。
+- 測試：`node --check cxr.js` / `llm-translate.js` 皆通過；`cxrFetchWithRetry` node harness 8/8 PASS（AUTH/CLIENT 無 retry、RATE 2 次、SERVER/NETWORK 1 次、retry 後成功）。實機 happy-path（vhtt 50 筆 Gemini batch / 列印）待 YC 跑。
+- 相依：純 viewer，不動 patterns / reporter（無 catalog/computed/manifest 改），不需 sync-patterns；parent brief `health_check_cxr` 仍 Open。
+
 ## 2026-05-21 — 健檢報告：清理病歷稽核表單 + 空行收斂加嚴
 
 - 作者：claude（與 YC 共同）
