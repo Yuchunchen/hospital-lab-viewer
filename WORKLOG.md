@@ -1,5 +1,19 @@
 # WORKLOG
 
+## 2026-05-21 — 健檢 CXR：摘要欄不 truncate（拿掉螢幕上 2 行 clip）
+
+- 作者：claude（與 YC 共同）
+- 範圍：cxr（html）
+- 變更：修改 CSS
+- 檔案：
+  - `cxr.html`：
+    - `.clip2` 螢幕規則簡化為 `line-height: 1.4;`（拿掉 `display:-webkit-box / -webkit-line-clamp:2 / -webkit-box-orient:vertical / overflow:hidden`），摘要不再 2 行截斷。
+    - `@media print` 內 `.clip2` override 因螢幕已 unclipped 而失去必要性，移除該行。
+    - comment 對齊新行為。
+- 原因：YC 反饋「摘要不要 truncate」 — 螢幕表格摘要欄應完整顯示與列印一致；2 行 clip 隱藏異常細節，臨床判讀不便。
+- 測試：純 CSS 改動，node 端無 lint；vhtt 實機 reload extension 後肉眼確認 (a) 螢幕摘要完整顯示，row 高度依摘要長度自適應 (b) 列印預覽行為不變（本來就完整）。
+- 相依：純 viewer，不動 patterns / reporter；不需 sync-patterns；class name `.clip2` 保留以維持 cxr.js 引用相容。
+
 ## 2026-05-21 — 健檢 CXR S2/S3 polish（Mode B + retry + 異常排序 + cache 行為）
 
 - 作者：claude（與 YC 共同）
