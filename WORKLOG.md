@@ -1,5 +1,15 @@
 # WORKLOG
 
+## 2026-05-21 — sync：catalog 新增 CXR track-only pattern（health_check_cxr S1）
+
+- 作者：claude（與 YC 共同）
+- 範圍：sync-script（重跑 `node sync-patterns.js`）+ manifest snapshot
+- 變更：修改（自動產生）
+- 檔案：`mapping.js`、`normalizers.js`、`patterns-computed.js`（皆 auto-generated）
+- 原因：sibling `hospital-lab-patterns` 在 `TASK_BRIEF_health_check_cxr` S1 把 `CXR` 加進 catalog（track-only，pattern `/PE\s*CXR|CHEST\s+PA\s+or\s+AP/i`，category 檢查）。viewer manifest 沒引用 — 現有單人報表零影響；同步只是把 catalog snapshot 帶進來，讓未來 S2 Dashboard 端拿得到 `CXR` id。reporter 不動。
+- 測試：`node sync-patterns.js` 跑通；本 commit 不改 popup/dashboard UI，沿用 sibling repo regex 樣本驗證（PE CXR / CHEST PA or AP View (TT) / Chest Left oblique(TT) 三筆必測通過）。
+- 相依：patterns repo 同步 commit（catalog 84 → 85）。
+
 ## 2026-05-21 — S2 篩檢 Dashboard：獨立視窗 + 個案管理 registry + DM 衛教 subpage
 
 - 作者：claude（與 YC 共同）
