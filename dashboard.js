@@ -691,6 +691,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('src-registry')?.addEventListener('click', loadFromRegistry);
   document.getElementById('run-btn')     ?.addEventListener('click', runScreen);
   document.getElementById('batch-enroll')?.addEventListener('click', batchEnroll);
+  document.getElementById('open-cxr-btn')?.addEventListener('click', () => {
+    const url = chrome.runtime.getURL('cxr.html');
+    if (chrome.windows && chrome.windows.create) {
+      chrome.windows.create({ url, type: 'popup', width: 1200, height: 860 });
+    } else {
+      chrome.tabs.create({ url });
+    }
+  });
 
   document.getElementById('filter-eligible')?.addEventListener('change', (e) => {
     state.filterEligible = e.target.checked;

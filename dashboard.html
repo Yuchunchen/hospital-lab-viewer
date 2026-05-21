@@ -25,7 +25,14 @@
       gap: 12px;
     }
     .header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.3px; }
-    .header .sub { font-size: 11px; opacity: 0.75; margin-left: auto; }
+    .header .sub { font-size: 11px; opacity: 0.75; }
+    .header #open-cxr-btn {
+      margin-left: auto;
+      background: rgba(255,255,255,.15);
+      color: #fff; border: 1px solid rgba(255,255,255,.35);
+      border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+    }
+    .header #open-cxr-btn:hover { background: rgba(255,255,255,.28); }
 
     /* ─── Input panel ──────────────────────────────────────────── */
     .input-panel {
@@ -245,6 +252,7 @@
   <div class="header">
     <span>📊</span>
     <h1>CKD/DM 收案篩檢 Dashboard</h1>
+    <button id="open-cxr-btn" title="開啟健檢 CXR 批次翻譯獨立視窗">🩻 CXR 翻譯</button>
     <span class="sub" id="header-sub">vhtt / vhyl ernode</span>
   </div>
 

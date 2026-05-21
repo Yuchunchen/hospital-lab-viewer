@@ -224,13 +224,16 @@ async function fetchIncremental(chartno, cachedOrders, onProgress) {
 
 // ─── IndexedDB Cache ──────────────────────────────────────────────────────────
 // DB_VER bump 4 → 5 (2026-05-21): 加 `registry` store 給 Dashboard 個案管理用。
-// 既有 STORE / ENRICH_STORE 不動;onupgradeneeded 用 if (!contains) 寫法,
-// 任何舊版本升上來都會補建欠缺的 store。
+// DB_VER bump 5 → 6 (2026-05-21): 加 `cxrTranslations` store 給健檢 CXR Tab
+//   存 LLM 翻譯結果（key = ordapno;value 帶 provider/model 以便換後端時失效）。
+// 既有 STORE / ENRICH_STORE / REGISTRY_STORE 不動;onupgradeneeded 用
+// if (!contains) 寫法,任何舊版本升上來都會補建欠缺的 store。
 var DB_NAME      = 'LabViewerCache';
-var DB_VER       = 5;
+var DB_VER       = 6;
 var STORE        = 'records';
 var ENRICH_STORE = 'enrichCache';
 var REGISTRY_STORE = 'registry';
+var CXR_TX_STORE = 'cxrTranslations';
 var _db = null;
 
 function openDB() {
@@ -245,6 +248,8 @@ function openDB() {
         db.createObjectStore(ENRICH_STORE, { keyPath: 'ordapno' });
       if (!db.objectStoreNames.contains(REGISTRY_STORE))
         db.createObjectStore(REGISTRY_STORE, { keyPath: 'chartno' });
+      if (!db.objectStoreNames.contains(CXR_TX_STORE))
+        db.createObjectStore(CXR_TX_STORE, { keyPath: 'ordapno' });
     };
     req.onsuccess = () => { _db = req.result; res(_db); };
     req.onerror   = () => rej(req.error);
@@ -330,6 +335,33 @@ async function registryRemove(chartno) {
   const db = await openDB();
   return new Promise((res, rej) => {
     const r = db.transaction(REGISTRY_STORE, 'readwrite').objectStore(REGISTRY_STORE).delete(chartno);
+    r.onsuccess = () => res();
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+// ─── CXR 翻譯快取 (健檢 CXR Tab) ──────────────────────────────────────────
+// key = ordapno（CXR order 的子頁面 id）。CXR 報告簽收後 immutable,但翻譯
+// 結果會隨 provider/model 改變,故 value 帶 provider/model;cxr.js 取出後
+// 自行比對,不符就重新呼叫 LLM 並覆寫。
+// schema: { ordapno, summary, findings:[{item,status,detail}], hasAbnormal,
+//           provider, model, ts }
+async function cxrTxGet(ordapno) {
+  if (!ordapno) return null;
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction(CXR_TX_STORE, 'readonly').objectStore(CXR_TX_STORE).get(String(ordapno));
+    r.onsuccess = () => res(r.result || null);
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+async function cxrTxPut(record) {
+  if (!record || !record.ordapno) return;
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction(CXR_TX_STORE, 'readwrite').objectStore(CXR_TX_STORE)
+                .put({ ...record, ordapno: String(record.ordapno), ts: Date.now() });
     r.onsuccess = () => res();
     r.onerror   = () => rej(r.error);
   });

@@ -28,7 +28,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["report-viewer.html", "dashboard.html"],
+      "resources": ["report-viewer.html", "dashboard.html", "cxr.html"],
       "matches": ["<all_urls>"]
     }
   ]

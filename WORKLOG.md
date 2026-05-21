@@ -1,5 +1,26 @@
 # WORKLOG
 
+## 2026-05-21 — 健檢 CXR S2：批次翻譯 pipeline（mock LLM，多後端架構）
+
+- 作者：claude（與 YC 共同）
+- 範圍：新增 cxr.html / cxr.js / llm-translate.js；修改 lab-core / popup / dashboard / manifest
+- 變更：新增 / 修改
+- 檔案：
+  - 新增 `cxr.html` — 健檢 CXR 獨立視窗（chrome.windows.create 1200×860）。輸入區（候診清單 chrome.scripting / 手動）、結果表格（病歷號 / 姓名 / CXR日期 / 狀態 / 中文摘要 / 異常項目）、右上齒輪 → LLM 設定 modal、@media print A4 直式（隱藏 UI、摘要不 truncate、異常紅字粗體、頁首統計）。
+  - 新增 `cxr.js` — 兩階段 pipeline：①batch fetch（concurrency 3，reuse lab-core loadData）→ catalog `CXR` pattern 找最近一筆 CXR order → 子頁面 OpdOrderReport.aspx 取「報告內容：」之後 `>` 開頭英文 free text；②batch translate（concurrency 5）→ `window.cxrLlmTranslate` → IndexedDB `cxrTranslations` 快取（provider/model 不符才重打，符合 brief test #10）。狀態排序權重「異常→無報告→正常→錯誤」、只看異常 / 只看無報告篩選、列印。
+  - 新增 `llm-translate.js` — 多後端 adapter：`window.cxrLlmTranslate(reportText, settings)` → `{summary, findings[], hasAbnormal}`。provider = mock（預設，關鍵字啟發假資料，不打網路）/ gemini（generateContent）/ claude（/v1/messages + browser-access header）/ openai（chat/completions json_object）。各 provider request 組裝 + response 解析獨立，共用 system prompt + `cxrNormalizeResult` 後處理（容忍 markdown 圍欄）。
+  - 修改 `lab-core.js` — DB_VER 5 → 6，加 `cxrTranslations` store（keyPath ordapno）+ `cxrTxGet/cxrTxPut`。onupgradeneeded 沿用 if(!contains) 補建寫法，舊版升上來零破壞。
+  - 修改 `popup.html`/`popup.js` — search-bar 加「🩻 CXR 翻譯」按鈕 + `openCxrWindow`。
+  - 修改 `dashboard.html`/`dashboard.js` — header 加「🩻 CXR 翻譯」按鈕開 cxr.html（Tab 2 ↔ Tab 3 互跳）。
+  - 修改 `manifest.json` — web_accessible_resources 加 `cxr.html`。
+- 原因：`TASK_BRIEF_health_check_cxr` S2。健檢門診每日 ~50 人，批次抓 CXR 英文報告 → LLM 翻中文白話摘要 + 異常標記。本階段先用 mock provider 把 fetch→extract→translate→render 整條跑通；真實 API 等使用者在設定 modal 填 key、切 provider 即可，程式不用再改。
+- 測試：
+  - `node --check` 五檔（llm-translate / cxr / lab-core / popup / dashboard）皆通過。
+  - mock pipeline node 實測：子頁面樣本（PE CXR 5 行 findings）extraction 正確切 5 行、`列印日期` 雜訊剝除；mock 異常偵測 5 項（心臟肥大 / DJD / 肺門 / 橫膈 / 浸潤）、正常樣本 hasAbnormal=false、空報告 graceful、無 provider fallback 到 mock。
+  - 待手動測（需 OPSID + 真實院內網）：opdweb 候診清單讀取、ernode fetch、子頁面實際格式、列印版面、真實 API key 連通。
+  - classic-script global scope：cxr.js / llm-translate.js 全用 CXR_/cxr 前綴，未與 mapping.js `CATALOG` / patterns-computed.js `HELPERS` 撞名。
+- 相依：依賴 patterns repo 已發版的 `CXR` catalog entry（上一條）。本次純 viewer，不需 reporter / patterns 重發。
+
 ## 2026-05-21 — sync：catalog 新增 CXR track-only pattern（health_check_cxr S1）
 
 - 作者：claude（與 YC 共同）
