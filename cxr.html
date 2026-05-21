@@ -124,12 +124,9 @@
       font-size: 11px; color: #34495e; line-height: 1.4;
       white-space: pre-wrap; word-break: break-word;
     }
-    /* 摘要：螢幕上 clip 2 行 + tooltip,列印展開 */
+    /* 摘要：完整顯示(不 truncate),維持 row 行距 */
     .summary-cell { max-width: 320px; }
-    .clip2 {
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      overflow: hidden; line-height: 1.4;
-    }
+    .clip2 { line-height: 1.4; }
     .summary-abn { color: #c0392b; font-weight: 600; }
     .abn-list { display: none; color: #c0392b; font-weight: 600; font-size: 11px; line-height: 1.4; margin-top: 2px; }
     .finding-none { color: #95a5a6; }
@@ -192,8 +189,7 @@
       .table-wrap { overflow: visible; }
       table.cxr thead th { position: static; background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       table.cxr tbody tr:hover { background: none; }
-      /* 列印時原始內容 + 摘要完整顯示,不 clip */
-      .clip2 { display: block; -webkit-line-clamp: unset; overflow: visible; }
+      /* 列印時原始內容 + 摘要 full width(寬度不限) */
       .raw-cell, .summary-cell { max-width: none; }
       .summary-abn { color: #c0392b !important; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .abn-list { display: block; color: #c0392b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
