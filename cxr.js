@@ -131,6 +131,23 @@ function cxrStripHeaderLines(text) {
     });
   }).join('\n');
 }
+// 報告內容清理：刪掉子頁面常見的免責聲明 box、LDCT 協議說明、檢查項目碼行,
+// 這些不是臨床 findings,送 LLM 翻譯只會浪費 token 且干擾摘要。
+function cxrCleanReportText(text) {
+  let t = text || '';
+  // a) 免責聲明 box（box-drawing 字元行 / 敬告 / 請病患妥為保管）
+  t = t.replace(/[┌┐└┘│─]+.*\n?/g, '');
+  t = t.replace(/.*敬告.*\n?/g, '');
+  t = t.replace(/.*請病患妥為保管.*\n?/g, '');
+  // b) LDCT 協議說明（整段括號內）
+  t = t.replace(/\(The low dose protocol[\s\S]*?evaluation\.\)\s*/g, '');
+  // c) 檢查項目碼行（"檢查項目：15001010 CHEST PA or AP (TT)" 等）
+  t = t.replace(/檢查項目：\d+\s+.*?(?:\n|$)/g, '');
+  // d) 連續空行收斂（3+ → 1 空行）
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t.trim();
+}
+
 function cxrExtractReportText(subpageText) {
   if (!subpageText) return '';
   let body;
@@ -141,8 +158,11 @@ function cxrExtractReportText(subpageText) {
   body = body.split(/列印日期|報告醫師|登打人員|頁次/)[0];
   // 以 `>` 標記切行（DOMParser textContent 可能把換行壓掉,故優先用 >）
   const segs = body.split(/\s*>\s*/).map(s => s.trim()).filter(Boolean);
-  if (segs.length > 1) return segs.join('\n');
-  return body.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join('\n');
+  const joined = segs.length > 1
+    ? segs.join('\n')
+    : body.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join('\n');
+  // extraction 後再清理免責聲明 / 協議說明 / 檢查項目碼行
+  return cxrCleanReportText(joined);
 }
 
 // ─── 子頁面 fetch（快取優先） ───────────────────────────────────────────
@@ -282,7 +302,8 @@ function cxrExamBadge(examType) {
 function cxrRawCell(row) {
   const t = row.reportText || '';
   if (!t) return '<span class="finding-none">—</span>';
-  return `<div class="clip2" title="${cxrEsc(t)}">${cxrEsc(t)}</div>`;
+  // 完整顯示（不 truncate）,white-space:pre-wrap 保留換行
+  return `<div class="raw-full">${cxrEsc(t)}</div>`;
 }
 
 function cxrSummaryCell(row) {

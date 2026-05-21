@@ -1,5 +1,19 @@
 # WORKLOG
 
+## 2026-05-21 — 健檢報告：清理免責聲明 + 原始內容完整顯示
+
+- 作者：claude（與 YC 共同）
+- 範圍：cxr（html + js）
+- 變更：修改
+- 檔案：
+  - `cxr.js`：
+    - 新增 `cxrCleanReportText()`,於 `cxrExtractReportText` extraction 後套用：(a) 刪免責聲明 box（box-drawing 字元行 / 含「敬告」/ 含「請病患妥為保管」）；(b) 刪 LDCT 協議說明整段括號 `(The low dose protocol … evaluation.)`；(c) 刪檢查項目碼行 `檢查項目：\d+ …`；(d) 連續 3+ 空行收斂為 1。送 LLM 前去雜訊。
+    - `cxrRawCell` 改為 `<div class="raw-full">` 完整顯示（移除 clip2 truncate + title tooltip）。
+  - `cxr.html`：`.raw-cell .raw-full` 用 `white-space:pre-wrap; word-break:break-word` 完整呈現換行；移除原始內容欄的 clip2 行截斷。摘要欄 clip2+tooltip 維持不變。
+- 原因：子頁面報告含免責聲明 box / LDCT 協議說明 / 檢查項目碼行等非臨床雜訊,送翻譯浪費 token 又干擾摘要；原始內容欄需求改為完整可讀（醫師核對用）。
+- 測試：`node --check cxr.js` 通過；eval-load node 實測：CXR 含 box → 留 2 行 findings；LDCT 含協議段+檢查項目行 → 留 2 行 findings；unit test 四類雜訊全清、空行收斂。
+- 相依：純 viewer，不需 patterns / reporter sync。
+
 ## 2026-05-21 — 健檢報告擴充：CXR → 四類影像（CXR/BMD/CAC/LDCT）+ 新欄位
 
 - 作者：claude（與 YC 共同）
