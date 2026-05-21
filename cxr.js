@@ -143,8 +143,21 @@ function cxrCleanReportText(text) {
   t = t.replace(/\(The low dose protocol[\s\S]*?evaluation\.\)\s*/g, '');
   // c) 檢查項目碼行（"檢查項目：15001010 CHEST PA or AP (TT)" 等）
   t = t.replace(/檢查項目：\d+\s+.*?(?:\n|$)/g, '');
-  // d) 連續空行收斂（3+ → 1 空行）
-  t = t.replace(/\n{3,}/g, '\n\n');
+  // e) 病歷稽核表單（ernode 子頁面存取紀錄，非報告內容）
+  const auditKeywords = [
+    '名稱','病人詢問病情','病歷稽核','病歷審查','司法查案',
+    '保險公司查詢','系統稽核','病患申請','健保需求','教學研究',
+    '病歷複製','公文回覆','用藥申請','查詢原因',
+    '本科臨床處置決策','他科醫師會診'
+  ];
+  const auditRe = new RegExp(
+    '^\\s*(' + auditKeywords.join('|') + '|其他[：:]?.*?)\\s*$', 'gm'
+  );
+  t = t.replace(auditRe, '');
+  // f) 只含空白字元的行（spaces/tabs）→ 刪除
+  t = t.replace(/^\s+$/gm, '');
+  // d) 連續空行收斂（2+ → 無空行）
+  t = t.replace(/\n{2,}/g, '\n');
   return t.trim();
 }
 
