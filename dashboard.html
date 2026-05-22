@@ -32,7 +32,7 @@
       border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer;
     }
     .header .hdr-btn:hover { background: rgba(255,255,255,.28); }
-    .header #src-registry { margin-left: auto; }
+    .header #open-cxr-btn { margin-left: auto; }
 
     /* ─── Input panel ──────────────────────────────────────────── */
     .input-panel {
@@ -160,19 +160,31 @@
       font-size: 10px;
     }
 
-    /* DM 衛教 cell */
+    /* DM 衛教內容 cell — 表格內直接完整顯示最近兩次有內容紀錄
+       （S3：拆掉 S2 的 truncate + title tooltip，改完整兩行） */
     .dm-cell {
-      max-width: 200px;
-      overflow: hidden;
+      max-width: 340px;
       font-size: 11px;
     }
     .dm-cell .dm-line {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.35;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.4;
+      margin-bottom: 3px;
     }
+    .dm-cell .dm-line:last-child { margin-bottom: 0; }
     .dm-cell .dm-date { color: #1a5276; font-weight: 600; }
+
+    /* DM 天數 cell（與 DM 衛教內容欄連動：最近一筆有內容紀錄至今天數） */
+    .dm-days-warn  { color: #d35400; font-weight: 600; }   /* > 180 天 橘 */
+    .dm-days-bad   { color: #c0392b; font-weight: 600; }   /* > 365 天 紅 */
+    .dm-days-empty { color: #95a5a6; text-align: center; background: #f4f6f7;
+                     margin: -5px -6px; padding: 5px 6px; }   /* 無有效紀錄 灰底 */
+    .dmdays-col, .elig-col { text-align: center; white-space: nowrap; }
+
+    /* Early CKD / Pre-ESRD 資格 ✅ / ❌ */
+    .elig-yes { color: #1e8449; font-weight: 700; }
+    .elig-no  { color: #cbd3da; }
 
     /* Enrollment eligibility tags */
     .tag {
@@ -182,10 +194,7 @@
       font-size: 10px;
       font-weight: 600;
     }
-    .tag-early { background: #d5f5e3; color: #1e8449; }
-    .tag-pre   { background: #d6eaf8; color: #1a5276; }
     .tag-dm    { background: #fdebd0; color: #b9770e; }
-    .tag-none  { color: #95a5a6; font-size: 10px; }
 
     /* Action buttons in row */
     .row-action {
@@ -199,7 +208,6 @@
       margin: 1px 1px;
     }
     .row-action:hover { background: #196f3d; }
-    .row-action.enrolled { background: #95a5a6; cursor: default; }
     .row-action.report  { background: #1a5276; }
     .row-action.report:hover { background: #154360; }
 
@@ -214,6 +222,41 @@
 
     /* registry panel small button */
     .registry-btns { display: flex; gap: 6px; }
+
+    /* ─── Print（沿用 cxr.html 範式：window.print() + @media print。
+           chrome-extension:// CSP 禁止新視窗 document.write，見 report-viewer.js
+           註解，故不另開 window，改列印目前已篩選的表格 → 自然滿足
+           「篩選後可見列」需求） ───────────────────────────────────── */
+    .print-head { display: none; }
+    @media print {
+      @page { size: A4 landscape; margin: 8mm; }
+      body { background: #fff; min-width: 0; font-size: 9px; }
+      .header, .input-panel, #status { display: none !important; }
+      .print-head { display: block; margin: 0 0 8px; }
+      .print-head h1 { font-size: 15px; }
+      .print-head .meta { font-size: 11px; color: #333; margin-top: 3px; }
+      .table-wrap { overflow: visible; }
+      table.dashboard { font-size: 8.5px; }
+      table.dashboard th, table.dashboard td { padding: 3px 4px; }
+      table.dashboard thead th {
+        position: static; cursor: default; background: #e8eef4 !important;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      }
+      table.dashboard thead th.sort-asc::after,
+      table.dashboard thead th.sort-desc::after { content: ''; }
+      table.dashboard tbody tr:hover { background: none; }
+      table.dashboard tbody tr { page-break-inside: avoid; }
+      /* DM 衛教欄列印完整展開（不限寬、自動換行） */
+      .dm-cell { max-width: none; }
+      .dm-cell .dm-line { white-space: normal; }
+      /* 動作欄（報告按鈕）列印無意義 → 隱藏整欄 */
+      .action-col, th[data-key="action"] { display: none; }
+      /* 顏色背景／字色在列印保留 */
+      .age-warn, .age-bad, .dm-days-empty,
+      .dm-days-warn, .dm-days-bad, .elig-yes, .lab-abnormal, .pending-mark {
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      }
+    }
   </style>
 </head>
 <body>
@@ -221,15 +264,15 @@
     <span>📊</span>
     <h1>CKD/DM 收案篩檢 Dashboard</h1>
     <span class="sub" id="header-sub">vhtt / vhyl ernode</span>
-    <button id="src-registry" class="hdr-btn" title="載入個案管理收案名單重新篩檢">📋 個案名單</button>
     <button id="open-cxr-btn" class="hdr-btn" title="開啟健檢報告（CXR 批次翻譯）獨立視窗">🩻 健檢報告</button>
   </div>
 
   <div class="input-panel">
     <div class="source-row">
+      <button id="print-all" title="列印目前篩選後可見的列（A4 橫印，DM 衛教完整展開）">🖨️ 全部列印</button>
+      <button id="export-csv" title="匯出 CSV（UTF-8 BOM，Excel 中文不亂碼）">📄 匯出 CSV</button>
       <span class="spacer"></span>
       <label><input type="checkbox" id="filter-eligible" /> 只看可收案</label>
-      <button id="batch-enroll" title="把所有符合條件者一次加入個案管理">批次加入</button>
       <span class="progress">
         <span class="progress-bar"><span id="progress-fill"></span></span>
         <span id="progress-text">尚未開始</span>
@@ -238,6 +281,11 @@
   </div>
 
   <div id="status"></div>
+
+  <div class="print-head">
+    <h1>CKD/DM 收案篩檢</h1>
+    <div class="meta" id="print-meta"></div>
+  </div>
 
   <div class="table-wrap">
     <table class="dashboard" id="result-table">
@@ -251,18 +299,19 @@
           <th data-key="abi">ABI</th>
           <th data-key="pvr">PVR</th>
           <th data-key="fundus">眼底鏡</th>
-          <th data-key="dm">DM衛教</th>
           <th data-key="sugar">Sugar</th>
           <th data-key="hba1c">HbA1c</th>
           <th data-key="egfr">eGFR</th>
           <th data-key="gfrStage">GFR分期</th>
-          <th data-key="earlyCKD">Early-CKD</th>
+          <th data-key="dm">DM 衛教內容</th>
+          <th data-key="dmDays">DM 天數</th>
+          <th data-key="earlyCKD">Early CKD</th>
           <th data-key="preESRD">Pre-ESRD</th>
           <th data-key="action">⚡動作</th>
         </tr>
       </thead>
       <tbody id="result-body">
-        <tr><td colspan="16" class="empty-table">請在 popup 貼上病歷號清單後按「DM腎病個案管理」</td></tr>
+        <tr><td colspan="17" class="empty-table">請在 popup 貼上病歷號清單後按「DM腎病個案管理」</td></tr>
       </tbody>
     </table>
   </div>

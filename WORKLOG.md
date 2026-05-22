@@ -1,5 +1,26 @@
 # WORKLOG
 
+## 2026-05-22 — CKD/DM 篩檢 Dashboard S3：四欄資格並排 + CSV + 批次列印（read-only 收尾）
+
+- 作者：claude（與 YC 共同）
+- 範圍：dashboard（html + js）
+- 變更：修改 / 移除 / 新增
+- 檔案：
+  - `dashboard.html`：
+    - 表頭四欄並排重排（取代 S2 既有單欄 Early-CKD / Pre-ESRD）：`… | GFR分期 | DM 衛教內容 | DM 天數 | Early CKD | Pre-ESRD | ⚡動作`（DM 衛教內容欄從中段移下、新增 DM 天數欄；16→17 欄，colspan 同步 17）。
+    - DM 衛教內容欄 CSS 拆掉 S2 的 truncate + title tooltip（`.dm-line` 由 nowrap/ellipsis 改 `white-space:normal` 自動換行，表格內直接完整顯示兩行）；新增 `.dm-days-warn/.dm-days-bad/.dm-days-empty`（DM 天數 >180 橘字 / >365 紅字 / 無內容灰底）、`.elig-yes/.elig-no`（✅/❌）；移除只服務 renderStagingTag 的 `.tag-early/.tag-pre/.tag-none` 與 `.row-action.enrolled`。
+    - input-panel 移除「批次加入」、新增「🖨️ 全部列印」+「📄 匯出 CSV」；header 移除「📋 個案名單」（registry 不接 UI）。
+    - 新增 `.print-head` + `@media print`（A4 橫印、隱藏 UI 與動作欄、DM 衛教完整展開），沿用 cxr.html 範式。
+  - `dashboard.js`：
+    - `extractDMEducation` 改為往前最多看 5 筆 DM EDUCATION、跳過子頁面 regex 抓不到內容（此次問題/衛教項目皆空）者、取最近 2 筆有內容的（5 筆都沒內容也停）。
+    - `renderDmCell` 改完整顯示無 tooltip；新增 `renderDmDaysCell`（與衛教欄連動，最近一筆有內容紀錄 order date 至今天數）、`renderEligibilityCell`（✅/❌）；移除 `renderStagingTag`。
+    - `renderTable` 依新欄序渲染、動作欄加 `action-col` class（列印隱藏）；`compareForSort` 加 `dmDays`。
+    - 新增 `exportCsv`/`csvField`/`csvExam`/`downloadCsv`（UTF-8 BOM、日期民國格式、未執行標「已開未做」、四新欄入欄）、`printDashboard`/`getVisibleRows`/`todayISO`（列印篩選後可見列）。
+    - read-only：移除 registry 寫入/讀取 UI glue（`enrollPatient`/`batchEnroll`/`refreshRegistrySet`/`loadFromRegistry` + 對應按鈕監聽 + `state.registry` + 列「加入」delegation 分支）。**registry object store 與 `registryPut/Get/List/Remove` 仍保留於 `lab-core.js`（保留但不接 UI），跨 repo 共享 DB 路線拍板後再啟用（brief § Follow-up #1）**。
+- 原因：`TASK_BRIEF_ckd_screening_dashboard` S3（2026-05-22 重寫，read-only 篩檢）。四欄資格一目了然、DM 衛教螢幕即完整可讀、產出 CSV / 批次列印供門診清單使用。
+- 測試：`node --check dashboard.js` 通過；vm-load node harness 26/26 PASS（csvField escaping、csvExam「已開未做」、renderDmDaysCell 180/365 門檻、renderDmCell 無 tooltip 完整顯示、✅/❌、extractDMEducation 跳過無內容取最近 2 筆 + 全無內容→空）。⏳ 待 YC 實機（vhtt / 院內網 + OPSID）：批次列印 A4 橫印預覽、Tab 1 dialysis 報告 regression、S2 候診/手動/batch/排序篩選 regression。
+- 相依：純 viewer，不動 patterns catalog / computed / manifest，**不需 sync-patterns**；registry DB schema 不變（lab-core `DB_VER 6` 不動）。auto-zip 略過（CLAUDE.md 指定的 Dropbox 路徑在 vhtt 不存在，reload 本地 unpacked source 即可）。
+
 ## 2026-05-21 — 健檢 CXR：摘要欄不 truncate（拿掉螢幕上 2 行 clip）
 
 - 作者：claude（與 YC 共同）
