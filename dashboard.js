@@ -127,9 +127,12 @@ async function extractDMEducation(orders, chartno) {
   const dmOrders = orders
     .filter(o => /DM EDUCATION/i.test(o.orderName || ''))
     .sort((a, b) => orderSortKey(b).localeCompare(orderSortKey(a)));
-  const top2 = dmOrders.slice(0, 2);
+  // S3：往前最多看 5 筆 DM EDUCATION，跳過子頁面 regex 抓不到內容的，
+  // 取最近 2 筆「有內容」（此次問題 或 衛教項目 任一非空）的紀錄；5 筆都沒內容也停。
+  const candidates = dmOrders.slice(0, 5);
   const out = [];
-  for (const o of top2) {
+  for (const o of candidates) {
+    if (out.length >= 2) break;
     if (!o.ordapno) continue;
     let text = null;
     try { text = await enrichCacheGet(o.ordapno); } catch (_) {}
@@ -146,6 +149,7 @@ async function extractDMEducation(orders, chartno) {
     const eduMatch   = text.match(/衛教項目：\s*([\s\S]*?)(?=┌|$)/);
     const issue = issueMatch ? issueMatch[1].trim().replace(/\s+/g, ' ') : '';
     const edu   = eduMatch   ? eduMatch[1].trim().replace(/\s+/g, ' ')   : '';
+    if (!issue && !edu) continue;   // 「有內容」判定：兩者皆空 → 跳過此筆繼續往前看
     out.push({
       date:  resdttmToTaiwan(o.resdttm) || o.orderDate || '',
       issue,
@@ -305,52 +309,45 @@ function renderEgfrCell(egfr) {
 
 function renderDmCell(dmList) {
   if (!dmList || !dmList.length) return '<span style="color:#bdc3c7;">—</span>';
-  const lines = dmList.map(d => {
-    const issueShort = (d.issue || '').slice(0, 30);
-    const eduShort   = (d.edu   || '').slice(0, 30);
-    const fullTip = `${d.date}\n此次問題：${d.issue || '(無)'}\n衛教項目：${d.edu || '(無)'}`;
-    return (
-      `<div class="dm-line" title="${escHtml(fullTip)}">` +
-        `<span class="dm-date">${escHtml(d.date)}</span> ` +
-        escHtml(issueShort) + (issueShort.length === 30 ? '…' : '') +
-        ' / ' +
-        escHtml(eduShort)   + (eduShort.length   === 30 ? '…' : '') +
-      `</div>`
-    );
-  });
+  // S3：表格內直接完整顯示最近兩次有內容紀錄，不 truncate、不 tooltip。
+  const lines = dmList.map(d =>
+    `<div class="dm-line">` +
+      `<span class="dm-date">${escHtml(d.date)}</span> — ` +
+      `此次問題: ${escHtml(d.issue || '(無)')} / 衛教: ${escHtml(d.edu || '(無)')}` +
+    `</div>`
+  );
   return `<div class="dm-cell">${lines.join('')}</div>`;
 }
 
-function renderStagingTag(value, classKind, eligible) {
-  if (!eligible) return '<span class="tag-none">—</span>';
-  return `<span class="tag tag-${classKind}">✅ ${escHtml(value)}</span>`;
+// DM 天數：與 DM 衛教內容欄連動 — 最近一筆「有內容」紀錄 order date 至今天的天數。
+// >180 橘字、>365 紅字；無有效紀錄 → 灰底「—」。
+function renderDmDaysCell(dmList) {
+  if (!dmList || !dmList.length) return '<div class="dm-days-empty">—</div>';
+  const days = ageInDays(dmList[0].date);
+  if (days == null) return '<div class="dm-days-empty">—</div>';
+  let cls = '';
+  if (days > 365) cls = 'dm-days-bad';
+  else if (days > 180) cls = 'dm-days-warn';
+  return `<span${cls ? ` class="${cls}"` : ''}>${days} 天</span>`;
 }
 
-function renderActions(row, enrolled) {
-  const cats = [];
-  if (row.enrollEligible) {
-    if (row.enrollEligible.earlyCKD) cats.push('Early-CKD');
-    if (row.enrollEligible.preESRD)  cats.push('Pre-ESRD');
-    if (row.enrollEligible.DM)       cats.push('DM');
-  }
-  const eligible = cats.length > 0;
-  const reportBtn = `<button class="row-action report" data-chartno="${escHtml(row.chartno)}" data-act="report">報告</button>`;
-  if (!eligible) return reportBtn;
-  if (enrolled) {
-    return (
-      `<button class="row-action enrolled" disabled>已收案</button>` + reportBtn
-    );
-  }
-  return (
-    `<button class="row-action" data-chartno="${escHtml(row.chartno)}" data-act="enroll" data-cats="${escHtml(cats.join(','))}">加入個案管理</button>` +
-    reportBtn
-  );
+// Early CKD / Pre-ESRD 資格：✅ / ❌（依 patterns EarlyCKD computed → P1早期 / P2中晚期）
+function renderEligibilityCell(eligible) {
+  return eligible
+    ? '<span class="elig-yes">✅</span>'
+    : '<span class="elig-no">❌</span>';
+}
+
+// S3（read-only）：移除「加入個案管理」按鈕，僅保留「報告」跳轉。registry 寫入
+// UI 已下線（store 與 registry* 函式保留於 lab-core.js，跨 repo DB 解後再啟用，
+// 見 brief § Follow-up #1）。
+function renderActions(row) {
+  return `<button class="row-action report" data-chartno="${escHtml(row.chartno)}" data-act="report">報告</button>`;
 }
 
 // ─── State + render loop ────────────────────────────────────────────
 const state = {
   results: [],          // batchScreen 結果
-  registry: new Set(),  // 已收案的 chartno（在 init 與每次 enroll 後刷新）
   sortKey: 'chartno',
   sortDir: 'asc',
   filterEligible: false,
@@ -368,6 +365,7 @@ function compareForSort(a, b, key) {
       case 'hba1c':     return r.values?.hba1c ? parseFloat(r.values.hba1c.value) : null;
       case 'egfr':      return r.values?.egfr ? r.values.egfr.value : null;
       case 'gfrStage':  return r.staging?.gfrStage || '';
+      case 'dmDays':    return (r.dmEducation && r.dmEducation.length) ? ageInDays(r.dmEducation[0].date) : null;
       case 'ekg':       return r.exams?.EKG?.latest?.date || '';
       case 'abi':       return r.exams?.ABI?.latest?.date || '';
       case 'pvr':       return r.exams?.PVR?.latest?.date || '';
@@ -401,15 +399,14 @@ function renderTable() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="16" class="empty-table">無資料</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="17" class="empty-table">無資料</td></tr>';
     return;
   }
 
   const html = rows.map(r => {
     if (r.error) {
-      return `<tr class="row-error"><td class="col-chartno">${escHtml(r.chartno)}</td><td colspan="15">⚠️ ${escHtml(r.error)}</td></tr>`;
+      return `<tr class="row-error"><td class="col-chartno">${escHtml(r.chartno)}</td><td colspan="16">⚠️ ${escHtml(r.error)}</td></tr>`;
     }
-    const enrolled = state.registry.has(r.chartno);
     const uacrCell = renderLabCell(r.values?.uacr, catById('UACR'));
     const sugCell  = renderLabCell(r.values?.sugar, catById('GluAC'));
     const hbaCell  = renderLabCell(r.values?.hba1c, catById('HbA1c'));
@@ -417,7 +414,8 @@ function renderTable() {
     const abiCell  = renderExamCell(r.exams?.ABI);
     const pvrCell  = renderExamCell(r.exams?.PVR);
     const funCell  = renderExamCell(r.exams?.Fundus);
-    const dmCell   = renderDmCell(r.dmEducation);
+    const dmCell     = renderDmCell(r.dmEducation);
+    const dmDaysCell = renderDmDaysCell(r.dmEducation);
     const egfrCell = renderEgfrCell(r.values?.egfr);
 
     const recentLabDate = r.recentLab?.date || '';
@@ -425,8 +423,8 @@ function renderTable() {
       ? `<div>${escHtml(recentLabDate)}</div><span class="rel-time">${escHtml(relativeFromTwDate(recentLabDate))}</span>`
       : '<span style="color:#bdc3c7;">—</span>';
 
-    const earlyTag = renderStagingTag(r.staging?.earlyCKD || '', 'early', r.enrollEligible?.earlyCKD);
-    const preTag   = renderStagingTag(r.staging?.earlyCKD || '', 'pre',   r.enrollEligible?.preESRD);
+    const earlyCell = renderEligibilityCell(r.enrollEligible?.earlyCKD);
+    const preCell   = renderEligibilityCell(r.enrollEligible?.preESRD);
     const gfrStageHtml = r.staging?.gfrStage
       ? `<span>${escHtml(r.staging.gfrStage)}</span>` +
         (r.staging.taiwanCKD ? `<span class="rel-time">${escHtml(r.staging.taiwanCKD)}</span>` : '')
@@ -445,14 +443,15 @@ function renderTable() {
         `<td>${abiCell}</td>` +
         `<td>${pvrCell}</td>` +
         `<td>${funCell}</td>` +
-        `<td>${dmCell}</td>` +
         `<td>${sugCell}</td>` +
         `<td>${hbaCell}</td>` +
         `<td>${egfrCell}</td>` +
         `<td>${gfrStageHtml}</td>` +
-        `<td>${earlyTag}</td>` +
-        `<td>${preTag}</td>` +
-        `<td>${renderActions(r, enrolled)}</td>` +
+        `<td class="dm-col">${dmCell}</td>` +
+        `<td class="dmdays-col">${dmDaysCell}</td>` +
+        `<td class="elig-col">${earlyCell}</td>` +
+        `<td class="elig-col">${preCell}</td>` +
+        `<td class="action-col">${renderActions(r)}</td>` +
       `</tr>`
     );
   });
@@ -468,69 +467,12 @@ function renderTable() {
   });
 }
 
-// ─── 個案管理（registry）操作 ─────────────────────────────────────────
-async function refreshRegistrySet() {
-  try {
-    const list = await registryList();
-    state.registry = new Set(list.map(r => r.chartno));
-  } catch (e) {
-    console.warn('[dashboard] registryList failed:', e);
-  }
-}
-
-async function enrollPatient(chartno, cats) {
-  const row = state.results.find(r => r && r.chartno === chartno);
-  if (!row) return;
-  try {
-    await registryPut({
-      chartno,
-      name:            row.patientInfo?.name || '',
-      enrollDate:      new Date().toISOString(),
-      category:        cats.join(','),
-      lastScreenDate:  new Date().toISOString(),
-      notes:           '',
-    });
-    state.registry.add(chartno);
-    renderTable();
-    setStatus(`已加入個案管理：${chartno} (${cats.join(',')})`);
-  } catch (e) {
-    setStatus('加入個案管理失敗：' + e.message, true);
-  }
-}
-
-async function batchEnroll() {
-  const eligible = state.results.filter(r =>
-    r && !r.error && r.enrollEligible &&
-    (r.enrollEligible.earlyCKD || r.enrollEligible.preESRD || r.enrollEligible.DM) &&
-    !state.registry.has(r.chartno)
-  );
-  if (!eligible.length) {
-    setStatus('無新的可收案病人（已收案者不重複加入）');
-    return;
-  }
-  if (!confirm(`將 ${eligible.length} 位符合條件的病人加入個案管理？`)) return;
-  let n = 0;
-  for (const r of eligible) {
-    const cats = [];
-    if (r.enrollEligible.earlyCKD) cats.push('Early-CKD');
-    if (r.enrollEligible.preESRD)  cats.push('Pre-ESRD');
-    if (r.enrollEligible.DM)       cats.push('DM');
-    try {
-      await registryPut({
-        chartno:        r.chartno,
-        name:           r.patientInfo?.name || '',
-        enrollDate:     new Date().toISOString(),
-        category:       cats.join(','),
-        lastScreenDate: new Date().toISOString(),
-        notes:          '',
-      });
-      state.registry.add(r.chartno);
-      n++;
-    } catch (_) {}
-  }
-  renderTable();
-  setStatus(`批次加入完成：${n} / ${eligible.length} 位`);
-}
+// ─── 個案管理（registry）：S3 read-only，UI 已下線 ───────────────────────
+// S3 為唯讀篩檢：移除「加入個案管理 / 批次加入 / 個案名單」registry 寫入＋讀取
+// UI（enrollPatient / batchEnroll / refreshRegistrySet / loadFromRegistry 一併
+// 移除）。registry object store 與 registryPut/Get/List/Remove 仍保留於
+// lab-core.js（保留但不接 UI），待跨 repo 共享 DB 路線拍板後於下一個 brief
+// 重新接上（brief § Follow-up #1）。
 
 // ─── Status / progress ─────────────────────────────────────────────
 function setStatus(msg, isError) {
@@ -547,17 +489,106 @@ function setProgress(done, total) {
   text.textContent = total ? `${done} / ${total} 完成 (${pct}%)` : '尚未開始';
 }
 
-// ─── 個案管理名單來源（保留：popup 拿不到 registry,這是唯一入口） ─────
-async function loadFromRegistry() {
-  await refreshRegistrySet();
-  try {
-    const list = await registryList();
-    if (!list.length) { setStatus('個案管理 registry 是空的'); return; }
-    setStatus(`載入個案管理名單 ${list.length} 筆 — 開始批次篩檢…`);
-    screenChartText(list.map(r => r.chartno).join('\n'));
-  } catch (e) {
-    setStatus('讀取 registry 失敗：' + e.message, true);
+// ─── 目前篩選後可見列（filter + sort，排除 error）：供列印與計數共用 ──────
+function getVisibleRows() {
+  let rows = state.results.filter(r => r && !r.error);
+  if (state.filterEligible) {
+    rows = rows.filter(r => r.enrollEligible &&
+      (r.enrollEligible.earlyCKD || r.enrollEligible.preESRD || r.enrollEligible.DM));
   }
+  rows.sort((a, b) => {
+    const c = compareForSort(a, b, state.sortKey);
+    return state.sortDir === 'desc' ? -c : c;
+  });
+  return rows;
+}
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ─── CSV 匯出（UTF-8 BOM；日期民國格式；四新欄入欄；未執行標「已開未做」） ─
+function csvField(v) {
+  const s = v == null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function csvExam(exam) {
+  if (!exam) return '';
+  if (exam.isPending) return `已開未做 ${exam.latest.orderDate || exam.latest.date || ''}`.trim();
+  return exam.latest.date || exam.latest.orderDate || '';
+}
+
+function downloadCsv(filename, csvText) {
+  // UTF-8 BOM 讓 Excel 開啟中文不亂碼。
+  const blob = new Blob(['﻿' + csvText], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportCsv() {
+  const rows = state.results.filter(r => r && !r.error);
+  if (!rows.length) { setStatus('尚無篩檢結果可匯出'); return; }
+  const headers = ['病歷號', '姓名', '性別', '年齡', '最近抽血', 'UACR', 'EKG', 'ABI',
+    'PVR', '眼底鏡', 'Sugar', 'HbA1c', 'eGFR', 'GFR分期',
+    'DM衛教-此次問題', 'DM衛教-衛教項目', 'DM天數', 'EarlyCKD', 'PreESRD'];
+  const lines = [headers.map(csvField).join(',')];
+  for (const r of rows) {
+    const dm0 = (r.dmEducation && r.dmEducation[0]) || null;
+    const dmDays = dm0 ? ageInDays(dm0.date) : null;
+    const line = [
+      r.chartno,
+      r.patientInfo?.name || '',
+      r.patientInfo?.gender || '',
+      r.patientInfo?.age || '',
+      r.recentLab?.date || '',
+      r.values?.uacr?.value || '',
+      csvExam(r.exams?.EKG),
+      csvExam(r.exams?.ABI),
+      csvExam(r.exams?.PVR),
+      csvExam(r.exams?.Fundus),
+      r.values?.sugar?.value || '',
+      r.values?.hba1c?.value || '',
+      r.values?.egfr?.value != null ? r.values.egfr.value : '',
+      r.staging?.gfrStage || '',
+      dm0?.issue || '',
+      dm0?.edu || '',
+      dmDays != null ? dmDays : '',
+      r.enrollEligible?.earlyCKD ? 'Y' : 'N',
+      r.enrollEligible?.preESRD ? 'Y' : 'N',
+    ];
+    lines.push(line.map(csvField).join(','));
+  }
+  downloadCsv(`ckd-dm-screening-${todayISO()}.csv`, lines.join('\r\n'));
+  setStatus(`已匯出 CSV：${rows.length} 位`);
+}
+
+// ─── 批次列印（沿用 cxr.html 範式：填 print-head 後 window.print()。
+//     @media print 隱藏 UI／動作欄、A4 橫印、DM 衛教完整展開。
+//     列印範圍＝目前篩選後可見列：renderTable 只渲染篩選後的列到 DOM，
+//     window.print() 自然只印可見列） ───────────────────────────────────
+function printDashboard() {
+  if (!state.results.length) { setStatus('尚無篩檢結果可列印'); return; }
+  const visible = getVisibleRows();
+  const iso = todayISO();
+  const titleEl = document.querySelector('.print-head h1');
+  if (titleEl) titleEl.textContent = `CKD/DM 收案篩檢 — ${iso}`;
+  const dmN    = visible.filter(r => r.isDM).length;
+  const earlyN = visible.filter(r => r.enrollEligible?.earlyCKD).length;
+  const preN   = visible.filter(r => r.enrollEligible?.preESRD).length;
+  const metaEl = document.getElementById('print-meta');
+  if (metaEl) {
+    metaEl.textContent =
+      `列印 ${visible.length} 位 ｜ DM ${dmN} ｜ Early CKD ${earlyN} ｜ Pre-ESRD ${preN}`;
+  }
+  window.print();
 }
 
 // ─── 主要：跑篩檢（清單來自 popup → chrome.storage.session 或 registry） ─
@@ -574,8 +605,6 @@ async function screenChartText(rawText) {
   }
   setStatus(`開始篩檢 ${uniq.length} 位病人…`);
   setProgress(0, uniq.length);
-
-  await refreshRegistrySet();
 
   try {
     state.results = await batchScreen(uniq, (done, total) => setProgress(done, total));
@@ -646,10 +675,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     setStatus('請先至 popup → 選項頁設定 OPSID,本 Dashboard 才能 fetch ernode', true);
   }
   refreshPatterns(false);
-  await refreshRegistrySet();
 
-  document.getElementById('src-registry')?.addEventListener('click', loadFromRegistry);
-  document.getElementById('batch-enroll')?.addEventListener('click', batchEnroll);
+  document.getElementById('print-all')?.addEventListener('click', printDashboard);
+  document.getElementById('export-csv')?.addEventListener('click', exportCsv);
   document.getElementById('open-cxr-btn')?.addEventListener('click', openCxrWithCurrentList);
 
   document.getElementById('filter-eligible')?.addEventListener('change', (e) => {
@@ -660,7 +688,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 載入 popup 送來的清單;沒有就提示
   const got = await loadListFromSession();
   if (!got && CONFIG.OPSID) {
-    setStatus('請在 popup 貼上病歷號清單後按「DM腎病個案管理」,或點右上「📋 個案名單」載入收案清單');
+    setStatus('請在 popup 貼上病歷號清單後按「DM腎病個案管理」開始篩檢');
   }
 
   // popup 再次送清單（或 focus 已開視窗時）→ 自動重新篩檢
@@ -685,18 +713,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // event delegation for row buttons / chartno link
+  // event delegation：列「報告」按鈕 / 病歷號連結 → 跳 Tab 1 詳細報告
   document.getElementById('result-body').addEventListener('click', (e) => {
     const t = e.target.closest('[data-act]');
     if (!t) return;
-    const act = t.dataset.act;
     const chartno = t.dataset.chartno;
     if (!chartno) return;
-    if (act === 'enroll') {
-      const cats = (t.dataset.cats || '').split(',').filter(Boolean);
-      enrollPatient(chartno, cats);
-    } else if (act === 'report') {
-      jumpToReport(chartno);
-    }
+    if (t.dataset.act === 'report') jumpToReport(chartno);
   });
 });
