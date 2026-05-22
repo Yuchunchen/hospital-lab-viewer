@@ -65,7 +65,11 @@ function renderSection(orders, title) {
     [o.orderName, o.status, null, o.dept, o.orderDate, o.receiveDate]
       .forEach((val, i) => {
         if (i === 2) {
-          tr.appendChild(makeExpandableCell(o.reportText));
+          // imaging row：cells[2] 抓到的是 letterhead+表頭+body 全 concat,
+          // 在 render 層過 cleanImagingReport（lab-core 共用）只留 finding/impression。
+          // lab row 不套（檢驗結果格式,套 imaging cleaning 會破壞）。
+          const reportText = isRad ? cleanImagingReport(o.reportText) : o.reportText;
+          tr.appendChild(makeExpandableCell(reportText));
         } else {
           const td = document.createElement('td');
           td.textContent = val || '';

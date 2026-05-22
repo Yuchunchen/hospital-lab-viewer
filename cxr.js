@@ -111,72 +111,9 @@ function cxrExamOrder(id) {
 }
 
 // ─── 子頁面報告 text 擷取（去表頭） ─────────────────────────────────────
-// 子頁面 textContent 含「索引號/姓名/性別/科別/判讀醫師/簽收時間/報告時間/
-// 申請序號/檢查項目/IMPRESSION … 報告內容：> line > line …」。
-// 主路徑：取「報告內容：」之後的 free text（表頭天然被排除）。
-// 備援：沒有「報告內容：」分隔時（BMD/CAC/LDCT 子頁面格式可能不同）,逐行
-// 去掉已知表頭欄位行,留其餘 free text。
-const CXR_HEADER_LABELS = [
-  '索引號', '姓名', '姓 名', '性別', '性 別', '科別', '科 別',
-  '判讀醫師', '簽收時間', '報告時間', '申請序號', '檢查項目', 'IMPRESSION',
-];
-function cxrStripHeaderLines(text) {
-  return text.split(/\r?\n/).filter(line => {
-    const t = line.trim();
-    if (!t) return false;
-    const compact = t.replace(/\s/g, '');
-    return !CXR_HEADER_LABELS.some(lbl => {
-      const l = lbl.replace(/\s/g, '');
-      return compact.startsWith(l) || t.startsWith(lbl);
-    });
-  }).join('\n');
-}
-// 報告內容清理：刪掉子頁面常見的免責聲明 box、LDCT 協議說明、檢查項目碼行,
-// 這些不是臨床 findings,送 LLM 翻譯只會浪費 token 且干擾摘要。
-function cxrCleanReportText(text) {
-  let t = text || '';
-  // a) 免責聲明 box（box-drawing 字元行 / 敬告 / 請病患妥為保管）
-  t = t.replace(/[┌┐└┘│─]+.*\n?/g, '');
-  t = t.replace(/.*敬告.*\n?/g, '');
-  t = t.replace(/.*請病患妥為保管.*\n?/g, '');
-  // b) LDCT 協議說明（整段括號內）
-  t = t.replace(/\(The low dose protocol[\s\S]*?evaluation\.\)\s*/g, '');
-  // c) 檢查項目碼行（"檢查項目：15001010 CHEST PA or AP (TT)" 等）
-  t = t.replace(/檢查項目：\d+\s+.*?(?:\n|$)/g, '');
-  // e) 病歷稽核表單（ernode 子頁面存取紀錄，非報告內容）
-  const auditKeywords = [
-    '名稱','病人詢問病情','病歷稽核','病歷審查','司法查案',
-    '保險公司查詢','系統稽核','病患申請','健保需求','教學研究',
-    '病歷複製','公文回覆','用藥申請','查詢原因',
-    '本科臨床處置決策','他科醫師會診'
-  ];
-  const auditRe = new RegExp(
-    '^\\s*(' + auditKeywords.join('|') + '|其他[：:]?.*?)\\s*$', 'gm'
-  );
-  t = t.replace(auditRe, '');
-  // f) 只含空白字元的行（spaces/tabs）→ 刪除
-  t = t.replace(/^\s+$/gm, '');
-  // d) 連續空行收斂（2+ → 無空行）
-  t = t.replace(/\n{2,}/g, '\n');
-  return t.trim();
-}
-
-function cxrExtractReportText(subpageText) {
-  if (!subpageText) return '';
-  let body;
-  const m = subpageText.match(/報告內容[：:]\s*([\s\S]*)/);
-  if (m) body = m[1];
-  else   body = cxrStripHeaderLines(subpageText);
-  // 去掉子頁面尾端可能的版面雜訊
-  body = body.split(/列印日期|報告醫師|登打人員|頁次/)[0];
-  // 以 `>` 標記切行（DOMParser textContent 可能把換行壓掉,故優先用 >）
-  const segs = body.split(/\s*>\s*/).map(s => s.trim()).filter(Boolean);
-  const joined = segs.length > 1
-    ? segs.join('\n')
-    : body.split(/\r?\n/).map(s => s.trim()).filter(Boolean).join('\n');
-  // extraction 後再清理免責聲明 / 協議說明 / 檢查項目碼行
-  return cxrCleanReportText(joined);
-}
+// cleaning 三層（「報告內容：」分隔線主路徑 / 表頭欄位行 strip 備援 / 通用清理）
+// 已抽到 lab-core.js 的 cleanImagingReport()，與 popup imaging row 共用同一份。
+// 子頁面 textContent 與 master orders page cells[2] 同格式,故行為一致。
 
 // ─── 子頁面 fetch（快取優先） ───────────────────────────────────────────
 async function cxrFetchSubpage(ordapno, chartno) {
@@ -211,7 +148,7 @@ async function cxrFetchPatient(rawChart) {
     if (!ord) continue;   // 沒有該檢查 → 不顯示那列
 
     const subpageText = await cxrFetchSubpage(ord.ordapno, chartno);
-    const reportText = cxrExtractReportText(subpageText);
+    const reportText = cleanImagingReport(subpageText);   // lab-core 共用
     rows.push({
       chartno, patientInfo,
       examType:  et.id,

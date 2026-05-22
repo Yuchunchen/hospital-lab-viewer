@@ -1,5 +1,18 @@
 # WORKLOG
 
+## 2026-05-22 — popup imaging report 套 cleaning（共用 cxr.js 既有邏輯）
+
+- 作者：claude（與 YC 共同）
+- 範圍：popup + cxr + lab-core
+- 變更：新增（lab-core 共用 function）/ 修改（popup wire-up）/ 移除（cxr 重複邏輯）
+- 檔案：
+  - `lab-core.js`：新增共用 `cleanImagingReport(rawText)` + helper（`stripImagingHeaderLines` / `cleanImagingReportText` / `IMAGING_HEADER_LABELS`），三層 cleaning：①「報告內容：」分隔線主路徑取 free text ②無分隔線時逐行 strip 已知表頭欄位行（BMD/CAC 格式備援）③通用清理（box 字元 / LDCT 協議括號段 / 檢查項目碼行 / ernode 稽核表單 / 空行收斂）。從 cxr.js 逐字抽出，行為一致。
+  - `cxr.js`：移除自有 `CXR_HEADER_LABELS` / `cxrStripHeaderLines` / `cxrCleanReportText` / `cxrExtractReportText`，`cxrFetchPatient` 改 call lab-core 的 `cleanImagingReport(subpageText)`。同一份邏輯，cxr.html 健檢視窗行為不變。
+  - `popup.js`：`renderSection` 對 imaging row（`isRad`）在 render 層過 `cleanImagingReport(o.reportText)` 再丟 `makeExpandableCell`；lab row 不套（檢驗結果格式套 imaging cleaning 會破壞）。只 touch render path，不改 `parseOrdersPage` cell 抓法、不污染 data layer。
+- 原因：`TASK_BRIEF_imaging_report_cleaning_share`。master orders page 對 imaging row 把整份子頁面（letterhead + 表頭 + body）concat 進 `cells[2].textContent`，popup 直接 truncate 前 80 字 → 使用者只看到 letterhead，看不到 finding/impression（vhtt 000034324I LDCT 回報）。fix 是對既抓到的 `reportText` 套 cleaning 留 body —— 不 fetch 子頁面（點「正式報告」navigate 過去反而只有空殼）。
+- 測試：`node --check` 三檔皆 OK（無 const 重複宣告 SyntaxError）；vm-load 真實 lab-core.js 的 node harness 17/17 PASS — 000034324I LDCT 主路徑輸出含「A 6mm subpleural nodule over RUL」「Mild fibrotic change over LLL」、letterhead/表頭/檢查項目碼/協議括號/box/敬告/列印日期全 strip；BMD 備援路徑（無「報告內容：」）逐行 strip 表頭；稽核表單 layer；空值/null 邊界。⏳ 待 YC 實機（vhtt 院內網 + OPSID）：000034324I / 000058895E popup LDCT/CAC/Bone density row 展開看完整 finding、cxr.html 健檢視窗 LDCT 翻譯前後對照無 regression、lab orders（如 80885F）顯示不受影響。
+- 相依：純 viewer，不動 patterns catalog / computed / manifest，**不需 sync-patterns**；IndexedDB schema 不變（`DB_VER 6` 不動）。auto-zip 略過（CLAUDE.md 指定的 Dropbox 路徑在 vhtt 不存在，reload 本地 unpacked source 即可）。
+
 ## 2026-05-22 — CKD/DM 篩檢 Dashboard S3：四欄資格並排 + CSV + 批次列印（read-only 收尾）
 
 - 作者：claude（與 YC 共同）
