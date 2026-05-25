@@ -172,6 +172,7 @@ async function screenPatient(rawChart) {
   const hba1c = extractLatestLabValue(lab, catById('HbA1c'));
   const creat = extractLatestLabValue(lab, catById('CREAT'));
   const uacr  = extractLatestLabValue(lab, catById('UACR'));
+  const upcr  = extractLatestLabValue(lab, catById('UPCR'));
 
   let egfr = null;
   if (creat && patientInfo.age && patientInfo.gender) {
@@ -197,8 +198,10 @@ async function screenPatient(rawChart) {
 
   const egfrVal = egfr ? egfr.value : null;
   const uacrVal = uacr ? parseFloat(uacr.value) : null;
+  const upcrVal = upcr ? parseFloat(upcr.value) : null;
   const gfrStage  = LAB_HELPERS.GFRStage  ? LAB_HELPERS.GFRStage({ eGFR: egfrVal }) : null;
-  const taiwanCKD = LAB_HELPERS.TaiwanCKD ? LAB_HELPERS.TaiwanCKD({ eGFR: egfrVal, UACR: uacrVal, UPCR: null }) : null;
+  // 2026-05-25 順手修 pre-existing bug:UPCR 原本硬寫 null,UPCR-only 病人 staging 算不出 → 改傳 upcrVal
+  const taiwanCKD = LAB_HELPERS.TaiwanCKD ? LAB_HELPERS.TaiwanCKD({ eGFR: egfrVal, UACR: uacrVal, UPCR: upcrVal }) : null;
   const earlyCKD  = LAB_HELPERS.EarlyCKD  ? LAB_HELPERS.EarlyCKD({ TaiwanCKD: taiwanCKD, eGFR: egfrVal }) : null;
 
   const labSorted = [...lab].sort((a, b) =>
@@ -212,7 +215,7 @@ async function screenPatient(rawChart) {
     chartno,
     patientInfo,
     recentLab,
-    values: { sugar, hba1c, creat, uacr, egfr },
+    values: { sugar, hba1c, creat, uacr, upcr, egfr },
     exams,
     dmEducation,
     staging: { gfrStage, taiwanCKD, earlyCKD },
@@ -361,6 +364,7 @@ function compareForSort(a, b, key) {
       case 'name':      return r.patientInfo?.name || '';
       case 'recentLab': return r.recentLab?.date || '';
       case 'uacr':      return r.values?.uacr ? parseFloat(r.values.uacr.value) : null;
+      case 'upcr':      return r.values?.upcr ? parseFloat(r.values.upcr.value) : null;
       case 'sugar':     return r.values?.sugar ? parseFloat(r.values.sugar.value) : null;
       case 'hba1c':     return r.values?.hba1c ? parseFloat(r.values.hba1c.value) : null;
       case 'egfr':      return r.values?.egfr ? r.values.egfr.value : null;
@@ -399,15 +403,16 @@ function renderTable() {
   });
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="17" class="empty-table">無資料</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="18" class="empty-table">無資料</td></tr>';
     return;
   }
 
   const html = rows.map(r => {
     if (r.error) {
-      return `<tr class="row-error"><td class="col-chartno">${escHtml(r.chartno)}</td><td colspan="16">⚠️ ${escHtml(r.error)}</td></tr>`;
+      return `<tr class="row-error"><td class="col-chartno">${escHtml(r.chartno)}</td><td colspan="17">⚠️ ${escHtml(r.error)}</td></tr>`;
     }
     const uacrCell = renderLabCell(r.values?.uacr, catById('UACR'));
+    const upcrCell = renderLabCell(r.values?.upcr, catById('UPCR'));
     const sugCell  = renderLabCell(r.values?.sugar, catById('GluAC'));
     const hbaCell  = renderLabCell(r.values?.hba1c, catById('HbA1c'));
     const ekgCell  = renderExamCell(r.exams?.EKG);
@@ -438,18 +443,19 @@ function renderTable() {
         `<td class="col-chartno"><a data-chartno="${escHtml(r.chartno)}" data-act="report">${escHtml(r.chartno)}</a></td>` +
         `<td>${dmTag}${escHtml(name)} <span style="color:#7f8c8d;font-size:10px;">${escHtml((r.patientInfo?.gender || '') + ' ' + (r.patientInfo?.age || ''))}</span></td>` +
         `<td>${recentLabCell}</td>` +
-        `<td>${uacrCell}</td>` +
+        `<td>${sugCell}</td>` +
+        `<td>${hbaCell}</td>` +
         `<td>${ekgCell}</td>` +
         `<td>${abiCell}</td>` +
         `<td>${pvrCell}</td>` +
         `<td>${funCell}</td>` +
-        `<td>${sugCell}</td>` +
-        `<td>${hbaCell}</td>` +
+        `<td>${uacrCell}</td>` +
+        `<td>${upcrCell}</td>` +
         `<td>${egfrCell}</td>` +
-        `<td>${gfrStageHtml}</td>` +
         `<td class="dm-col">${dmCell}</td>` +
         `<td class="dmdays-col">${dmDaysCell}</td>` +
         `<td class="elig-col">${earlyCell}</td>` +
+        `<td>${gfrStageHtml}</td>` +
         `<td class="elig-col">${preCell}</td>` +
         `<td class="action-col">${renderActions(r)}</td>` +
       `</tr>`
@@ -536,9 +542,11 @@ function downloadCsv(filename, csvText) {
 function exportCsv() {
   const rows = state.results.filter(r => r && !r.error);
   if (!rows.length) { setStatus('尚無篩檢結果可匯出'); return; }
-  const headers = ['病歷號', '姓名', '性別', '年齡', '最近抽血', 'UACR', 'EKG', 'ABI',
-    'PVR', '眼底鏡', 'Sugar', 'HbA1c', 'eGFR', 'GFR分期',
-    'DM衛教-此次問題', 'DM衛教-衛教項目', 'DM天數', 'EarlyCKD', 'PreESRD'];
+  const headers = ['病歷號', '姓名', '性別', '年齡', '最近抽血',
+    'Sugar', 'HbA1c', 'EKG', 'ABI', 'PVR', '眼底鏡',
+    'UACR', 'UPCR', 'eGFR',
+    'DM衛教-此次問題', 'DM衛教-衛教項目', 'DM天數',
+    'EarlyCKD', 'GFR分期', 'PreESRD'];
   const lines = [headers.map(csvField).join(',')];
   for (const r of rows) {
     const dm0 = (r.dmEducation && r.dmEducation[0]) || null;
@@ -549,19 +557,20 @@ function exportCsv() {
       r.patientInfo?.gender || '',
       r.patientInfo?.age || '',
       r.recentLab?.date || '',
-      r.values?.uacr?.value || '',
+      r.values?.sugar?.value || '',
+      r.values?.hba1c?.value || '',
       csvExam(r.exams?.EKG),
       csvExam(r.exams?.ABI),
       csvExam(r.exams?.PVR),
       csvExam(r.exams?.Fundus),
-      r.values?.sugar?.value || '',
-      r.values?.hba1c?.value || '',
+      r.values?.uacr?.value || '',
+      r.values?.upcr?.value || '',
       r.values?.egfr?.value != null ? r.values.egfr.value : '',
-      r.staging?.gfrStage || '',
       dm0?.issue || '',
       dm0?.edu || '',
       dmDays != null ? dmDays : '',
       r.enrollEligible?.earlyCKD ? 'Y' : 'N',
+      r.staging?.gfrStage || '',
       r.enrollEligible?.preESRD ? 'Y' : 'N',
     ];
     lines.push(line.map(csvField).join(','));

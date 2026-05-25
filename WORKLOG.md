@@ -1,5 +1,27 @@
 # WORKLOG
 
+## 2026-05-25 — DM Dashboard:加 UPCR 欄 + 欄序重排(18 欄)
+
+- 作者:claude(與 YC 共同,在 vhyl Cowork 動手)
+- 範圍:viewer dashboard(html + js;無 lab-core / popup / cxr 變動)
+- 變更:新增 / 修改
+- 檔案:
+  - `dashboard.html`:thead 18 個 `<th data-key>` 依新順序重排;empty row colspan 17→18
+  - `dashboard.js`:
+    - `screenPatient` line 175 加 `const upcr = extractLatestLabValue(lab, catById('UPCR'));`
+    - line 201 加 `const upcrVal = upcr ? parseFloat(upcr.value) : null;`
+    - line 204 TaiwanCKD 從 `UPCR: null` 改 `UPCR: upcrVal`(**順手修 pre-existing bug**:Dashboard 原本 UPCR 永遠 null,UPCR-only 病人 staging 算不出來)
+    - line 218 row result `values: { sugar, hba1c, creat, uacr, upcr, egfr }` 加 upcr
+    - `compareForSort` 加 `case 'upcr'` 數值排序
+    - error row colspan 16→17(總欄數 17→18,error 跳過 col-chartno 一欄)
+    - `renderTable` row HTML 18 個 `<td>` 依新順序輸出,新增 `${upcrCell}` 在 UACR 之後
+    - `exportCsv` header 20 欄 + row 20 cells 依新順序,新增 `'UPCR'` 在 `'UACR'` 之後(CSV 含 性別/年齡 各一欄,故 CSV 比畫面多 2)
+- 新欄序(畫面 18 欄):chartno / 姓名 / 最近抽血 / Sugar / HbA1c / EKG / ABI / PVR / 眼底鏡 / UACR / **UPCR** / eGFR / DM衛教 / DM天數 / Early CKD / GFR分期 / Pre-ESRD / ⚡動作
+- 動機:`TASK_BRIEF_dm_dashboard_upcr_and_reorder.md`。Dashboard 原本只有 UACR(尿微量白蛋白),臨床上 UPCR(尿蛋白肌酐比)也是 KDIGO A 軸並列指標 — 有些病人只做過 UPCR 沒做 UACR,Dashboard 看不到等於少資訊。欄序重排把同質指標放一起(實驗值 → 影像/檢查 → 蛋白尿系列 → 計算分期 → DM 衛教 → 動作),臨床瀏覽動線更順。
+- 跨 repo 副作用:無 — UPCR catalog entry 已於 2026-05-08 加入(`T.PROT/CREAT` alternation);純 viewer own-code 改動,**不需 sync-patterns**。
+- 測試:見 brief § 4。`node --check dashboard.js` 通過;grep 確認 18 個 `<th>` 順序對、`UPCR: upcrVal`(非 null)、colspan 17/18、CSV header 含 UPCR;實機 vhyl 16 位 DM 病人重 fetch 待驗收。
+- 相依:無;單 commit 在本 repo 即可。**本 commit 在 510782a(同日 ABI/Fundus sync)之上,不覆寫 catalog 修正**。
+
 ## 2026-05-25 — sync 拉新 catalog(ABI / Fundus 加 vhyl alternation)
 
 - 作者:claude(與 YC 共同,在 vhyl Cowork 動手)
