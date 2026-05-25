@@ -1,5 +1,16 @@
 # WORKLOG
 
+## 2026-05-25 — sync 拉新 catalog(ABI / Fundus 加 vhyl alternation)
+
+- 作者:claude(與 YC 共同,在 vhyl Cowork 動手)
+- 範圍:sync-script(純 sync,無 viewer own-code 改動)
+- 變更:自動產生
+- 檔案:`mapping.js`(由 `node sync-patterns.js` 重產);`normalizers.js` / `patterns-computed.js` 也重產但內容未變
+- 原因:sibling `hospital-lab-patterns` 同日為 vhyl Dashboard ABI / Fundus silent miss 修正擴 alternation。viewer Dashboard 端 EKG/ABI/PVR/Fundus 從 `window.HOSPITAL_LAB_PATTERNS_CATALOG` 直接取,sync 拉新版進 mapping.js 後即吃到新 regex。
+- viewer 影響:Dashboard 對 vhyl 病人 ABI / Fundus 正確 match;vhtt 既有行為不變(`Doppling ex.` / `Fundoscopy` alternation 都還在)。
+- 測試:vhyl 16 位 DM 病人 Chrome extension reload + popup → Dashboard 重 fetch,ABI / Fundus 兩欄都補上日期(YC 在 vhyl Cowork 2026-05-25 實機驗收 PASS)。
+- 相依:patterns repo 同日 commit。
+
 ## 2026-05-22 — popup imaging report 套 cleaning（共用 cxr.js 既有邏輯）
 
 - 作者：claude（與 YC 共同）

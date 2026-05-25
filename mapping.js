@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-21T03:05:13.058Z
+// Synced at: 2026-05-25T02:58:18.221Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -852,7 +852,7 @@ const CATALOG = [
     unit:'', ref:'', lo:null, hi:null },
 
   { id:'ABI',    displayName:'ABI',
-    pattern: /\bABI\b|Doppling ex\./i,
+    pattern: /\bABI\b|Doppling ex\.|四肢血流探測/i,
     category:'檢查',
     unit:'', ref:'', lo:null, hi:null },
 
@@ -862,7 +862,7 @@ const CATALOG = [
     unit:'', ref:'', lo:null, hi:null },
 
   { id:'Fundus', displayName:'眼底鏡',
-    pattern: /Fundoscopy|眼底鏡/i,
+    pattern: /Fundoscopy|眼底鏡|Fundus\s+color/i,
     category:'檢查',
     unit:'', ref:'', lo:null, hi:null },
 
@@ -1117,5 +1117,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-21T03:05:13.058Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-25T02:58:18.221Z";
 }
