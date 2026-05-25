@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-25T02:58:18.221Z
+// Synced at: 2026-05-25T11:21:50.628Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -558,8 +558,12 @@ const CATALOG = [
     ref:'< 20 ng/mL（肝臟）',
     refLo:null, refHi:20, hi:20, lo:null },
 
+  // vhyl sample (2026-05-25): "正式報告 CEA(YL): 7.37" — chartno 000023172B
+  // 比照 AFP / Fe / TSAT 同期 fix 加 (TT|YL) 可選後綴。
+  // 同 section 其他 test (PSA / FreePSA / CA199 / CA125) 在 vhyl 端 value
+  // line 都不帶 (YL)，CEA 是異例 — 不擴張本 fix 範圍。
   { id:'CEA',
-    pattern: /CEA:\s*([<>]?[\d.]+)/,
+    pattern: /CEA\s*(?:\((?:TT|YL)\))?:\s*([<>]?\s*[\d.]+)/,
     displayName:'癌胚抗原 (CEA)', shortLabel:'CEA',
     unit:'ng/mL', category:'癌症指數',
     ref:'< 5 ng/mL（大腸直腸）',
@@ -1117,5 +1121,5 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-25T02:58:18.221Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-25T11:21:50.628Z";
 }
