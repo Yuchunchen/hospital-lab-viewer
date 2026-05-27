@@ -103,6 +103,16 @@
     <div class="hint">列印報告的頁首標題</div>
   </div>
 
+  <div class="field">
+    <label for="machine">本機院區（判讀參考值用）</label>
+    <select id="machine" style="width:100%;border:1px solid #b0c4d8;border-radius:4px;padding:6px 9px;font-size:13px;">
+      <option value="">未設定（用通用參考值）</option>
+      <option value="vhtt">臺東分院 (vhtt)</option>
+      <option value="vhyl">玉里分院 (vhyl)</option>
+    </select>
+    <div class="hint">不同院區試劑校正不同，影響檢驗值正常範圍判定。首次開啟 popup 會詢問一次。</div>
+  </div>
+
   <div class="actions">
     <button id="save-btn">儲存</button>
     <button id="reset-btn" class="btn-reset">還原預設</button>

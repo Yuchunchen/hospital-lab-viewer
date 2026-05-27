@@ -15,6 +15,11 @@ function loadSettings() {
     $('opsid').value        = result.opsid        || DEFAULTS.opsid;
     $('report-title').value = result.reportTitle  || DEFAULTS.reportTitle;
   });
+  // currentMachine lives in chrome.storage.local (per-install, not synced).
+  chrome.storage.local.get(['currentMachine'], (r) => {
+    $('machine').value = (r && (r.currentMachine === 'vhtt' || r.currentMachine === 'vhyl'))
+      ? r.currentMachine : '';
+  });
 }
 
 // Save settings
@@ -34,10 +39,16 @@ $('save-btn')?.addEventListener('click', () => {
     return;
   }
 
+  const machine = $('machine').value === 'vhtt' || $('machine').value === 'vhyl'
+    ? $('machine').value : null;
+
   chrome.storage.sync.set({ baseUrl, opsid, reportTitle }, () => {
-    $('status').textContent = '已儲存 ✓';
-    $('status').style.color = '#1e8449';
-    setTimeout(() => { $('status').textContent = ''; }, 2000);
+    // currentMachine is stored separately in chrome.storage.local.
+    chrome.storage.local.set({ currentMachine: machine }, () => {
+      $('status').textContent = '已儲存 ✓';
+      $('status').style.color = '#1e8449';
+      setTimeout(() => { $('status').textContent = ''; }, 2000);
+    });
   });
 });
 

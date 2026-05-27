@@ -1,5 +1,25 @@
 # WORKLOG
 
+## 2026-05-28 — 接 resolveRef(機器×時間×性別 ref)+ first-run 院區選擇
+
+- 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
+- 範圍:viewer lab-core / report / dashboard / popup / options / sync-script / manifest-bundle
+- 變更:新增 / 修改
+- 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_ref_range_machine_time_dim.md`(Order 5.0)
+- 檔案:
+  - `lab-core.js`:新增 `CURRENT_MACHINE` cache + `loadMachineSource()` / `getMachineSource()`(sync)/ `setMachineSource()`,讀寫 `chrome.storage.local.currentMachine`
+  - `report.js`:`valueStyle()` 加 `reportDate` 參數,hi/lo 改經 `resolveRef(test.id, getMachineSource(), reportDate, gender'男/女'→'M/F', window.TEST_MAP)`;兩個呼叫點傳 `c.date` / `entry.date`;保留 resolveRef 不可用時 legacy 性別 fallback
+  - `dashboard.js`:`renderLabCell` hi/lo 改經 `resolveRef`(gender 中性 null、傳 `entry.date`);bootstrap 加 `await loadMachineSource()`
+  - `popup.js`:bootstrap 加 `await loadMachineSource()` + 無值時 `showMachineFirstRun()`(兩段式 pick→confirm,§11.5 防誤選)
+  - `popup.html`:加 machine-modal 容器 + CSS
+  - `options.html` / `options.js`:加「本機院區」下拉,讀寫 `chrome.storage.local.currentMachine`(供日後更改)
+  - `sync-patterns.js`:mapping.js 多 bundle `lib/resolveRef.js`(CODE,不走 dist/patterns.json)
+  - `mapping.js`(自動產生):重 sync,含 51 條 refHistory 資料 + resolveRef
+- 測試:`node sync-patterns.js` 重產;node 模擬 window 載入 mapping.js 對 TEST_MAP 呼叫 resolveRef:WBC vhtt `{4,11}`、GOT `{null,34}`、BUN `{null,25.7}`(零 regression)、RBC M `{4.2,6.2}` / F `{3.7,5.5}`(性別)、ROC `115/04/14` + machine 未設 → universal fallback OK
+- 設計:machine 未設時 resolveRef 只 match `'*'` → 回 universal base(seed 自 lo/hi)= **零 regression**,first-run 只為讀 vhyl override。base seed 自 `lo/hi` 非 refLo/refHi(YC 2026-05-28 拍板)
+- 相依:需 `hospital-lab-patterns` 先發版(catalog refHistory + lib/resolveRef.js + schema)。schema 屬破壞性改動,**push 前先問**(規則 #3)
+- 尚未做:reporter 端 wiring;真機驗證(T18/T19 + 整合 A+B);hospital-lab-viewer.zip 重打包(deploy 時)
+
 ## 2026-05-25 — DM Dashboard:加 UPCR 欄 + 欄序重排(18 欄)
 
 - 作者:claude(與 YC 共同,在 vhyl Cowork 動手)

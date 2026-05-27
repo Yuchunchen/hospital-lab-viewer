@@ -375,9 +375,55 @@ function openCxrWindow() {
   sendListToWindow('cxr.html', 'cxr_chartlist', { width: 1200, height: 860, label: '健檢報告' });
 }
 
+// ─── First-run machine picker (vhtt / vhyl) ────────────────────────────────────
+// Shown once when chrome.storage.local has no currentMachine. Two-step (pick →
+// confirm) so a vhyl user doesn't mis-pick vhtt (brief §11.5). Writes via
+// setMachineSource(); after that the popup is silent. Changeable later in options.
+const MACHINE_LABELS = { vhtt: '臺東分院 (vhtt)', vhyl: '玉里分院 (vhyl)' };
+
+function showMachineFirstRun() {
+  const modal = document.getElementById('machine-modal');
+  const box   = document.getElementById('machine-box');
+  if (!modal || !box) return;
+
+  function renderPick() {
+    box.innerHTML =
+      '<h2>這台電腦在哪個院區？</h2>' +
+      '<p>用來判讀檢驗值的正常範圍 — 不同院區試劑校正不同。設定一次後不再詢問（可到選項頁更改）。</p>' +
+      '<div class="machine-choices">' +
+        '<button data-m="vhtt">臺東分院<br>(vhtt)</button>' +
+        '<button data-m="vhyl">玉里分院<br>(vhyl)</button>' +
+      '</div>';
+    box.querySelectorAll('button[data-m]').forEach(b =>
+      b.addEventListener('click', () => renderConfirm(b.getAttribute('data-m'))));
+  }
+
+  function renderConfirm(m) {
+    box.innerHTML =
+      '<div class="machine-confirm">' +
+        '<h2>確認院區</h2>' +
+        '<p>你選的是 <strong>' + MACHINE_LABELS[m] + '</strong>，確認？</p>' +
+        '<div class="row">' +
+          '<button class="back">重選</button>' +
+          '<button class="ok">確認</button>' +
+        '</div>' +
+      '</div>';
+    box.querySelector('.back').addEventListener('click', renderPick);
+    box.querySelector('.ok').addEventListener('click', async () => {
+      await setMachineSource(m);
+      modal.classList.add('hidden');
+    });
+  }
+
+  renderPick();
+  modal.classList.remove('hidden');
+}
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
+  await loadMachineSource();
+  if (!getMachineSource()) showMachineFirstRun();
 
   const input    = document.getElementById('chartno-input');
   const statusEl = document.getElementById('status');

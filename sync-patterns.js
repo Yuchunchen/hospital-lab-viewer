@@ -66,6 +66,10 @@ function banner(sources) {
   const catalogSrc     = read('catalog.js');
   const manifestSrc    = read('viewer.js');
   const normalizersSrc = read('normalizers.js');
+  // resolveRef is CODE (machine × time × gender ref resolver) — it can't ride
+  // dist/patterns.json (build-json drops functions), so it's bundled here. It's
+  // self-contained (takes the catalog as an arg) and exposes window.resolveRef.
+  const resolveRefSrc  = read('lib/resolveRef.js');
 
   const resolver = [
     '',
@@ -105,11 +109,11 @@ function banner(sources) {
   ].join('\n');
 
   // Order: normalizers first (defines NORMALIZERS), then catalog, then manifest,
-  // then resolver (which can reference all three).
-  const out = banner('catalog.js + viewer.js + normalizers.js') +
-              normalizersSrc + catalogSrc + manifestSrc + resolver;
+  // then resolver (which can reference all three), then resolveRef (standalone).
+  const out = banner('catalog.js + viewer.js + normalizers.js + lib/resolveRef.js') +
+              normalizersSrc + catalogSrc + manifestSrc + resolver + resolveRefSrc;
   fs.writeFileSync(path.join(__dirname, 'mapping.js'), out, 'utf8');
-  console.log('✓ mapping.js           ← catalog.js + viewer.js + normalizers.js + resolver');
+  console.log('✓ mapping.js           ← catalog.js + viewer.js + normalizers.js + resolver + resolveRef');
 }
 
 // ─── patterns-computed.js ─ copy as-is

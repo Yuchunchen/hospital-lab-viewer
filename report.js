@@ -444,19 +444,28 @@ function buildTextResultMap(orders, tests) {
 // Normal values inherit the default style (black, not bold) — only out-of-range
 // values get colored + bolded so they pop on the page.
 // isLatest: true for the most-recent (rightmost) value cell
-// gender:   '男' / '女' / '' — when entry has loM/hiM/loF/hiF, picks gender-specific
-//           thresholds; falls back to test.lo / test.hi (wide envelope) when unknown.
-function valueStyle(val, test, bw, isLatest, gender) {
+// gender:   '男' / '女' / '' — mapped to 'M'/'F' for resolveRef.
+// reportDate: this value's date (ROC "115/04/14"); resolveRef normalises it and
+//           picks the machine × time × gender ref. Falls back to test.lo/test.hi
+//           when resolveRef is unavailable (older bundle) or returns null.
+function valueStyle(val, test, bw, isLatest, gender, reportDate) {
   const n = parseFloat(String(val).replace(/^[<>]\s*/, ''));
   let s = '';
   if (!isNaN(n)) {
     let hi = test.hi, lo = test.lo;
-    if (gender === '男' && (test.hiM != null || test.loM != null)) {
-      hi = test.hiM != null ? test.hiM : hi;
-      lo = test.loM != null ? test.loM : lo;
-    } else if (gender === '女' && (test.hiF != null || test.loF != null)) {
-      hi = test.hiF != null ? test.hiF : hi;
-      lo = test.loF != null ? test.loF : lo;
+    const g = gender === '男' ? 'M' : gender === '女' ? 'F' : null;
+    if (typeof resolveRef === 'function' && test && test.id) {
+      const r = resolveRef(test.id, getMachineSource(), reportDate, g, window.TEST_MAP);
+      if (r) { hi = r.refHi; lo = r.refLo; }
+    } else {
+      // Defensive fallback: legacy inline gender pick (pre-resolveRef bundle).
+      if (gender === '男' && (test.hiM != null || test.loM != null)) {
+        hi = test.hiM != null ? test.hiM : hi;
+        lo = test.loM != null ? test.loM : lo;
+      } else if (gender === '女' && (test.hiF != null || test.loF != null)) {
+        hi = test.hiF != null ? test.hiF : hi;
+        lo = test.loF != null ? test.loF : lo;
+      }
     }
     const isHigh = hi != null && n > hi;
     const isLow  = lo != null && n < lo;
@@ -602,7 +611,7 @@ function buildTestBlock(test, resultMap, bw, gender) {
         if (i === latestIdx) sty += 'background:#ddd;padding:0 3px;';
         return `<td style="${sty}">${h(c.value)}${star}</td>`;
       }
-      return `<td style="${valueStyle(c.value, test, bw, i === latestIdx, gender)}">${h(c.value)}</td>`;
+      return `<td style="${valueStyle(c.value, test, bw, i === latestIdx, gender, c.date)}">${h(c.value)}</td>`;
     })
     .join('');
 
@@ -1114,7 +1123,7 @@ function buildA5Page(patientInfo, orders, bw, title) {
     }
     const valStyle = entry._tag
       ? psaRatioStyle(entry._tag, bw)
-      : valueStyle(entry.value, test, bw, false, gender);
+      : valueStyle(entry.value, test, bw, false, gender, entry.date);
     return `<tr><td class="name">${displayName}</td>` +
            `<td class="value" style="${valStyle}">${h(entry.value)}</td>` +
            `<td class="ref">${refText}</td>` +
