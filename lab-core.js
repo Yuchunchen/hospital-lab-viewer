@@ -41,6 +41,39 @@ function loadConfig() {
   });
 }
 
+// ─── Machine source (vhtt / vhyl) ──────────────────────────────────────────────
+// resolveRef() needs to know which physical machine this install belongs to so
+// it can read machine-specific reference ranges (refHistory). Per
+// TASK_BRIEF_ref_range_machine_time_dim §3.1 the value comes from THIS install's
+// chrome.storage.local (NOT from the lab order), set once via a first-run prompt.
+// Cached here so synchronous render code (valueStyle / renderLabCell) can read it.
+// When unset, getMachineSource() returns null → resolveRef matches only the '*'
+// universal ref (= zero regression), so a missing first-run never breaks colouring.
+var CURRENT_MACHINE = null;
+
+function loadMachineSource() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get(['currentMachine'], (r) => {
+        CURRENT_MACHINE = (r && (r.currentMachine === 'vhtt' || r.currentMachine === 'vhyl'))
+          ? r.currentMachine : null;
+        resolve(CURRENT_MACHINE);
+      });
+    } catch (_) { resolve(null); }
+  });
+}
+
+function getMachineSource() { return CURRENT_MACHINE; }
+
+function setMachineSource(m) {
+  return new Promise((resolve) => {
+    if (m !== 'vhtt' && m !== 'vhyl') { resolve(false); return; }
+    CURRENT_MACHINE = m;
+    try { chrome.storage.local.set({ currentMachine: m }, () => resolve(true)); }
+    catch (_) { resolve(true); }
+  });
+}
+
 // ─── Split Input Into Multiple IDs ───────────────────────────────────────────
 // Two modes (auto-detected per line):
 //   1. TABULAR PASTE (≥5 tab cells) → col 5 (index 4) chartno, col 1 visitSerial.

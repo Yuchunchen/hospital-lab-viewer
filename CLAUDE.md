@@ -22,8 +22,12 @@ and `hospital-lab-patterns/docs/sop-cowork-guide.md` (SOP-CW2).
 
 <!-- 檔案清單與職責 -->
 
-- **popup.html / popup.js** — Extension popup UI. Search bar accepts chart numbers, displays lab and imaging orders in tables, and has a print button to generate reports.
+- **popup.html / popup.js** — Extension popup UI. Search bar accepts chart numbers, displays lab and imaging orders in tables, and has a print button to generate reports. Also hosts the first-run 院區 (vhtt/vhyl) picker modal.
 - **report.js** — Builds the printable HTML report. Generates A4 landscape pages with test results, text-report blocks, and reminders.
+- **lab-core.js** — Shared utilities loaded by popup AND the dashboard/cxr windows: CONFIG/loadConfig, chart-no parsing, `parseOrdersPage`/`fetchAllOrders`/`fetchIncremental`, IndexedDB cache, sub-page enrichment, and the machine-source helpers (`loadMachineSource`/`getMachineSource`/`setMachineSource` for `chrome.storage.local.currentMachine`).
+- **dashboard.html / dashboard.js** — Standalone window (opened from popup) for DM/CKD 個案管理 batch screening. `renderLabCell` colours values via the shared `resolveRef`.
+- **cxr.html / cxr.js** — Standalone window for 健檢報告 (CXR/imaging) batch fetch + LLM translation.
+- **llm-translate.js** — LLM translation helper used by the cxr window.
 - **pattern-loader.js** — Runtime pattern fetch + cache logic. On popup open: tries `chrome.storage.local` cache (24h TTL) → fetches `dist/patterns.json` from GitHub → falls back to bundled `mapping.js`. Freshness badge: ✓ fresh · 📦 cached · ⚠ stale.
 - **mapping.js** — *AUTO-GENERATED*. Bundled catalog + viewer manifest + normalizers + resolver. Source of truth lives in [`hospital-lab-patterns`](https://github.com/Yuchunchen/hospital-lab-patterns). Refresh via `node sync-patterns.js`. Do NOT hand-edit.
 - **normalizers.js** — *AUTO-GENERATED*. Named transform functions (wbcCount, plateletCount). Synced from patterns repo.

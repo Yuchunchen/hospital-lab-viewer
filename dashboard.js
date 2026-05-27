@@ -286,8 +286,15 @@ function renderLabCell(entry, testDef) {
   const num = parseFloat(val);
   let abnormal = false;
   if (testDef && !isNaN(num)) {
-    if (testDef.hi != null && num > testDef.hi) abnormal = true;
-    if (testDef.lo != null && num < testDef.lo) abnormal = true;
+    // machine × time ref via shared resolveRef (gender-neutral here — the
+    // Dashboard doesn't thread patient sex). Falls back to testDef.lo/hi.
+    let hi = testDef.hi, lo = testDef.lo;
+    if (typeof resolveRef === 'function' && testDef.id) {
+      const r = resolveRef(testDef.id, getMachineSource(), entry.date, null, window.TEST_MAP);
+      if (r) { hi = r.refHi; lo = r.refLo; }
+    }
+    if (hi != null && num > hi) abnormal = true;
+    if (lo != null && num < lo) abnormal = true;
   }
   const rel = relativeFromTwDate(entry.date);
   return (
@@ -680,6 +687,7 @@ async function openCxrWithCurrentList() {
 // ─── Bootstrap ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
+  await loadMachineSource();   // cache vhtt/vhyl for resolveRef before any render
   if (!CONFIG.OPSID) {
     setStatus('請先至 popup → 選項頁設定 OPSID,本 Dashboard 才能 fetch ernode', true);
   }
