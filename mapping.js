@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-27T22:18:48.392Z
+// Synced at: 2026-05-28T12:50:20.492Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -108,7 +108,10 @@ const CATALOG = [
     loM:14, hiM:18, loF:12, hiF:16,
     lo:12, hi:18,
     notes:'Pattern matches both "Hb:" and "HGB:" labels.',
-    refHistory: [{ machine:'*', refLo:12, refHi:18, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:12, refHi:18, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:12.3, refHi:18.3, refLoM:12.3, refHiM:18.3, refLoF:11.3, refHiF:15.3, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   { id:'HCT',
     pattern: /HCT:\s*([<>]?\s*[\d.]+)/,
@@ -136,7 +139,10 @@ const CATALOG = [
     refLo:150, refHi:400, hi:400, lo:150,
     normalize: 'plateletCount',
     notes:'Normalize handles /µL (e.g. 250000) → ×10³/µL (250).',
-    refHistory: [{ machine:'*', refLo:150, refHi:400, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:150, refHi:400, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:120, refHi:320, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   // ═══════════════════════════════════════════════════════════════════════
   // PROTEINS
@@ -170,7 +176,10 @@ const CATALOG = [
     unit:'U/L', category:'肝功能',
     ref:'5–34 U/L',
     refLo:5, refHi:34, hi:34, lo:null,
-    refHistory: [{ machine:'*', refLo:null, refHi:34, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:34, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:13, refHi:39, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   { id:'GPT',
     pattern: /GPT:\s*([<>]?\s*[\d.]+)/,
@@ -180,7 +189,10 @@ const CATALOG = [
     refLo:7, refHi:45,
     hiM:45, hiF:34,
     hi:45, lo:null,
-    refHistory: [{ machine:'*', refLo:null, refHi:45, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:45, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:7, refHi:52, refLoM:7, refHiM:52, refLoF:7, refHiF:52, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md (vhtt 印 universal 7-52,inline 性別 mirror 是為了 suppress outer hiM:45/hiF:34 fallback)' },
+    ] },
 
   { id:'RGT',
     pattern: /(?:r-?GT|R-?GT|γ-?GT|GGT|RGT):\s*([<>]?\s*[\d.]+)/i,
@@ -199,7 +211,10 @@ const CATALOG = [
     unit:'U/L', category:'肝功能',
     ref:'40–130 U/L',
     refLo:34, refHi:130, hi:130, lo:34,
-    refHistory: [{ machine:'*', refLo:34, refHi:130, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:34, refHi:130, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:34, refHi:104, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   { id:'TBIL',
     pattern: /T-BIL:\s*([<>]?\s*[\d.]+)/,
@@ -245,7 +260,10 @@ const CATALOG = [
     ref:'< 130 mg/dL',
     refLo:null, refHi:130, hi:130, lo:null,
     meaning:'俗稱「壞膽固醇」',
-    refHistory: [{ machine:'*', refLo:null, refHi:130, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:130, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:0, refHi:140, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   { id:'TG',
     pattern: /Triglyceride:\s*([<>]?\s*[\d.]+)/,
@@ -275,7 +293,10 @@ const CATALOG = [
     ref:'74–100 mg/dL',
     refLo:74, refHi:100, hi:100, lo:74,
     notes:'Matches Glucose(<site>), GLU, GLU-AC, Sugar(<site>), AC Sugar, 飯前血糖. Bare "Glucose:" intentionally NOT matched — urine routine Glucose: 4+ would otherwise capture "4" as a serum mg/dL value. 2026-05-12: also reject `+`-qualified gradient values (vhyl URINE ROUTINE(YL) GLU: 4+ was capturing 4).',
-    refHistory: [{ machine:'*', refLo:74, refHi:100, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:74, refHi:100, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:74, refHi:106, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   { id:'HbA1c',
     pattern: /HBA[I1]C%?:\s*([<>]?\s*[\d.]+)/i,
@@ -284,7 +305,10 @@ const CATALOG = [
     ref:'4–6 %',
     refLo:4, refHi:6, hi:6, lo:null,
     notes:'Pattern allows HBA1C and HBAIC (some systems print I instead of 1).',
-    refHistory: [{ machine:'*', refLo:null, refHi:6, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:6, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:4.3, refHi:5.8, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   // ═══════════════════════════════════════════════════════════════════════
   // RENAL FUNCTION
@@ -299,7 +323,10 @@ const CATALOG = [
     hiM:20.6, hiF:18.7,
     hi:25.7, lo:null,
     notes:'Fallback hi:25.7 is the original soft buffer for unknown gender; known-gender uses hiM/hiF for precision.',
-    refHistory: [{ machine:'*', refLo:null, refHi:25.7, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:25.7, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:7, refHi:25, refLoM:7, refHiM:25, refLoF:7, refHiF:25, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md (vhtt 印 universal 7-25,inline 性別 mirror 是為了 suppress outer hiM:20.6/hiF:18.7 fallback)' },
+    ] },
 
   // BUN_pre / BUN_post — dialysis-specific. Only the reporter uses these.
   // The orderNameFilter discriminates pre-dialysis (composite panel
@@ -333,7 +360,10 @@ const CATALOG = [
     hiM:1.2, hiF:1.0,
     hi:1.2, lo:null,
     notes:'Pattern matches "Creatinine(serum):" and "CREAT:" but NOT "Creatinine(24hrs Urine):".',
-    refHistory: [{ machine:'*', refLo:null, refHi:1.2, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:1.2, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:0.6, refHi:1.3, refLoM:0.7, refHiM:1.3, refLoF:0.6, refHiF:1.2, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   { id:'UA',
     pattern: /(?:UA|Uric\s*acid):\s*([<>]?\s*[\d.]+)/i,
@@ -343,7 +373,10 @@ const CATALOG = [
     refLo:2.5, refHi:7.7,
     hiM:7.7, hiF:6.2,
     hi:7.7, lo:null,
-    refHistory: [{ machine:'*', refLo:null, refHi:7.7, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:7.7, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:2.3, refHi:7.6, refLoM:4.4, refHiM:7.6, refLoF:2.3, refHiF:6.6, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   { id:'eGFR',
     pattern: /(?:Creatinine\(serum\)|CREAT):\s*([<>]?\s*[\d.]+)/i,
@@ -483,7 +516,10 @@ const CATALOG = [
     refLo:50, refHi:175,
     loM:65, hiM:175, loF:50, hiF:170,
     lo:50, hi:175,
-    refHistory: [{ machine:'*', refLo:50, refHi:175, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:50, refHi:175, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:50, refHi:175, refLoM:50, refHiM:175, refLoF:50, refHiF:175, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md + 委外:新南海 (vhtt 印 universal 50-175,inline 性別 mirror 是為了 suppress outer loM:65/hiF:170 fallback)' },
+    ] },
 
   { id:'TIBC',
     pattern: /TIBC:\s*([<>]?\s*[\d.]+)/,
@@ -595,7 +631,10 @@ const CATALOG = [
     unit:'ng/mL', category:'癌症指數',
     ref:'< 20 ng/mL（肝臟）',
     refLo:null, refHi:20, hi:20, lo:null,
-    refHistory: [{ machine:'*', refLo:null, refHi:20, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:20, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:0, refHi:9.0, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+    ] },
 
   // vhyl sample (2026-05-25): "正式報告 CEA(YL): 7.37" — chartno 000023172B
   // 比照 AFP / Fe / TSAT 同期 fix 加 (TT|YL) 可選後綴。
@@ -1172,7 +1211,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-27T22:18:48.392Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-28T12:50:20.492Z";
 }
 'use strict';
 

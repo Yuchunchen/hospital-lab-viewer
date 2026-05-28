@@ -1,6 +1,17 @@
 # WORKLOG
 
-## 2026-05-28 — 接 resolveRef(機器×時間×性別 ref)+ first-run 院區選擇
+## 2026-05-28 — sync patterns:13 條 vhtt refHistory override(cross-ref 12 chart batch)
+
+- 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
+- 範圍:sync-script bundle(mapping / normalizers / patterns-computed)
+- 變更:修改(auto-generated)
+- 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_vhtt_refHistory_batch_13_done.md`
+- 檔案:
+  - `mapping.js`、`normalizers.js`、`patterns-computed.js`:`node sync-patterns.js` 重產出
+- 原因:patterns repo 加 13 條 vhtt refHistory override(Hb / Platelet / BUN / CREAT / GOT / GPT / ALP / UA / GluAC / HbA1c / LDL / Fe / AFP),viewer mapping 需重 bundle
+- 測試:`node sync-patterns.js` 成功;viewer mapping resolver 含 13 條新 override(catalog 88 → 仍 88,只增 refHistory 末筆);真機 reload extension + 開 vhtt patient 驗證留待 YC 在 vhtt 機器跑(brief §5 success #5 屬 ref_range_followups memory pending 項)
+- 相依:hospital-lab-patterns 已 push(commit `5bcd638`)
+- 影響:OPD popup 24h 內透過 `dist/patterns.json` 自動拿到(本地 reload extension 可立即生效)
 
 - 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
 - 範圍:viewer lab-core / report / dashboard / popup / options / sync-script / manifest-bundle
