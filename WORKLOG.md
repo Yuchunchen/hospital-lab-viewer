@@ -1,5 +1,18 @@
 # WORKLOG
 
+## 2026-06-04 — sync patterns:Platelet regex 加 PLATE alternation
+
+- 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
+- 範圍:sync-script bundle(mapping)
+- 變更:修改(auto-generated)
+- 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_platelet_PLATE_alternation_done.md`
+- 檔案:
+  - `mapping.js`、`normalizers.js`、`patterns-computed.js`:`node sync-patterns.js` 重產出(實際只有 mapping.js Platelet pattern 一行差異;normalizers / patterns-computed 為 line-ending 重寫,內容相同)
+- 原因:patterns repo 修 catalog Platelet regex 加 PLATE alternation(`/Platelet:/` → `/(?:Platelet|PLATE):/`),viewer mapping 需重 bundle 才會跟到。修因:ernode CBC 套餐 reportText 印 `PLATE:` 而非 `Platelet:`,舊 regex 漏抓 — vhtt `000030794I` 5/20 CBC 套餐的 Platelet 89 看不到
+- 測試:`node sync-patterns.js` 成功;`git diff mapping.js | grep Platelet` 確認 alternation 已進 mapping。真機 reload extension + 開 vhtt `000030794I` 確認 Platelet row 兩筆(89 紅色 + 158)留待 YC 在 vhtt 機器上跑(brief T5)
+- 相依:hospital-lab-patterns 同輪 commit + push(catalog.js + dist/patterns.json)
+- 影響:OPD popup 24h 內透過 `dist/patterns.json` 自動拿到(本地 reload extension 可立即生效;6h orders cache 要點 freshness ↻ 強刷才會用新 regex 重 parse)
+
 ## 2026-05-28 — sync patterns:13 條 vhtt refHistory override(cross-ref 12 chart batch)
 
 - 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)

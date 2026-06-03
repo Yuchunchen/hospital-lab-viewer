@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-05-28T12:50:20.492Z
+// Synced at: 2026-06-03T21:11:59.624Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -132,7 +132,7 @@ const CATALOG = [
     refHistory: [{ machine:'*', refLo:79, refHi:99, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
 
   { id:'Platelet',
-    pattern: /Platelet:\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:Platelet|PLATE):\s*([<>]?\s*[\d.]+)/,
     displayName:'血小板 (Platelet)', shortLabel:'PLT',
     unit:'×10³/µL', category:'血液',
     ref:'150–400 ×10³/µL',
@@ -1211,7 +1211,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-05-28T12:50:20.492Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-03T21:11:59.624Z";
 }
 'use strict';
 
