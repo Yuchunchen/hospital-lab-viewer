@@ -938,10 +938,9 @@ const REPORT_CSS = `
 // ─── Build page-2 text-report column (text-kind blocks lumped into grid col 1) ─
 function buildPage2Column(resultMap, tests, bw, gender) {
   // Lump all text-kind blocks (BoneDensity / Endoscopy / AbdSono) into grid
-  // col 1 regardless of their manifest col field — they're small individually
-  // and visually belong together. Non-text entries on col 1/2 also fall in.
-  const p2Tests = tests.filter(t =>
-    t.page === 2 && (t.kind === 'text' || !t.col || t.col <= 2));
+  // col 1. Non-text page-2 entries (DC / HIV) go to grid col 2 via the
+  // explicit buildColumn(2, 2, ...) call in generatePatientPages.
+  const p2Tests = tests.filter(t => t.page === 2 && t.kind === 'text');
   if (!p2Tests.length) return '<div class="report-col"></div>';
 
   const order   = [];
@@ -1178,7 +1177,6 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
   const numMap       = buildResultMap(orders, tests, patientInfo);
   const textMap      = buildTextResultMap(orders, tests);
   const resultMap    = { ...numMap, ...textMap };
-  const reminderHtml = buildReminderBox(findUnshownOrders(orders, tests));
   const hasPage2     = !page1Only && tests.some(t => t.page === 2);
   const legendHtml   = bw ? LEGEND_BW : LEGEND_COLOR;
   const headerTitle  = title || DEFAULT_REPORT_TITLE;
@@ -1209,16 +1207,12 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
         ${buildColumn(1, 3, resultMap, tests, bw, gender)}
         ${buildColumn(1, 4, resultMap, tests, bw, gender)}
       </div>
-      ${hasPage2 ? '' : reminderHtml}
       ${legendHtml}
     </div>`;
 
-  // HIV col 3: text-kind entries excluded so AbdSono (col:3) doesn't double-
-  // render here AND in buildPage2Column's text-kind lump above.
-  const hivCol = hivReport
-    ? buildColumn(2, 3, resultMap, tests.filter(t => t.kind !== 'text'), bw, gender)
-    : '<div class="report-col"></div>';
-  const dcCol = buildColumn(2, 4, resultMap, tests, bw, gender);
+  // Page-2 grid col 2 — DC + HIV (HIV section auto-skipped when checkbox off
+  // via genderFilteredTests's hivOnly filter).
+  const page2Col2 = buildColumn(2, 2, resultMap, tests, bw, gender);
   const page2 = hasPage2 ? `
     <div class="page">
       ${visitSerialOverlay}
@@ -1226,9 +1220,9 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
       <div class="page-sub">${subInfo}　（第 2 頁）</div>
       <div class="report-4cols">
         ${buildPage2Column(resultMap, tests, bw, gender)}
-        <div class="report-col">${reminderHtml}</div>
-        ${hivCol}
-        ${dcCol}
+        ${page2Col2}
+        <div class="report-col"></div>
+        <div class="report-col"></div>
       </div>
       ${legendHtml}
     </div>` : '';
