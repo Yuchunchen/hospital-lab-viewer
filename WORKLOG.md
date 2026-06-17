@@ -1,5 +1,19 @@
 # WORKLOG
 
+## 2026-06-17 — sync patterns:DC section 從 page 1 col 3 移到 page 2 col 4
+
+- 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
+- 範圍:sync-script bundle(mapping)
+- 變更:修改(auto-generated)
+- 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_viewer_wbc_dc_section_done.md`(brief Open #3)
+- 檔案:
+  - `mapping.js`:`node sync-patterns.js` 重產出,5 條 DC manifest entry 的 page/col 從 `(1,3)` 改 `(2,4)`,section name 不變
+  - `normalizers.js`、`patterns-computed.js`:line-ending 重寫
+- 原因:6/16 第一輪 land 後 YC 真機測,page 1 col 3 已被「血液」+ 「營養／電解質」塞滿,DC 5 行擠版。Brief Open #3 預警過,本輪修。Page 2 col 4 原本空,搬過去整列獨立顯示。
+- 測試:`node sync-patterns.js` 成功;reload extension + popup 點 freshness 強刷 → DC section 應該出現在 page 2 col 4 留待 YC 真機確認
+- 相依:hospital-lab-patterns 同輪 commit + push
+- 影響:WBC 維持 page 1 col 3「血液」(hi:10/lo:5);A5 manifest 不含 DC,不受影響
+
 ## 2026-06-16 — sync patterns:新增 DC 五分類 + viewer「白血球分類 (DC)」section
 
 - 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
