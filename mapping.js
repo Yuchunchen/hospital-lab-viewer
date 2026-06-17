@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-03T21:11:59.624Z
+// Synced at: 2026-06-17T01:51:05.481Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -143,6 +143,34 @@ const CATALOG = [
       { machine:'*', refLo:150, refHi:400, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhtt', refLo:120, refHi:320, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
     ] },
+
+  // DC 五分類百分比 (differential count, %) — vhyl sample 2026-06-16
+  // order name DC(YL); value line 不帶 (YL) suffix。display-only,無參考值。
+  // vhtt mnemonic 未確認 — 若 vhtt 不同名,於此加 alternation。
+  { id:'Neut',
+    pattern: /\bNEUT:\s*([<>]?\s*[\d.]+)/,
+    displayName:'嗜中性球 (Neutrophil %)', shortLabel:'Neut%',
+    unit:'%', category:'血液' },
+
+  { id:'Lymph',
+    pattern: /\bLYM:\s*([<>]?\s*[\d.]+)/,
+    displayName:'淋巴球 (Lymphocyte %)', shortLabel:'Lym%',
+    unit:'%', category:'血液' },
+
+  { id:'Mono',
+    pattern: /\bMONO:\s*([<>]?\s*[\d.]+)/,
+    displayName:'單核球 (Monocyte %)', shortLabel:'Mono%',
+    unit:'%', category:'血液' },
+
+  { id:'Eos',
+    pattern: /\bEOSINO:\s*([<>]?\s*[\d.]+)/,
+    displayName:'嗜酸性球 (Eosinophil %)', shortLabel:'Eos%',
+    unit:'%', category:'血液' },
+
+  { id:'Baso',
+    pattern: /\bBASO:\s*([<>]?\s*[\d.]+)/,
+    displayName:'嗜鹼性球 (Basophil %)', shortLabel:'Baso%',
+    unit:'%', category:'血液' },
 
   // ═══════════════════════════════════════════════════════════════════════
   // PROTEINS
@@ -1068,6 +1096,14 @@ const VIEWER_MANIFEST = [
   { id:'Hb',       page:1, col:3, section:'血液' },
   { id:'Platelet', page:1, col:3, section:'血液' },
 
+  // ── Col 3 │ 白血球分類 (DC) ───────────────────────────────────────────
+  // DC 五分類% display-only(catalog 無 hi/lo)。WBC 仍在上方「血液」section。
+  { id:'Neut',  page:1, col:3, section:'白血球分類 (DC)' },
+  { id:'Lymph', page:1, col:3, section:'白血球分類 (DC)' },
+  { id:'Mono',  page:1, col:3, section:'白血球分類 (DC)' },
+  { id:'Eos',   page:1, col:3, section:'白血球分類 (DC)' },
+  { id:'Baso',  page:1, col:3, section:'白血球分類 (DC)' },
+
   // ── Col 3 │ 營養／電解質 ─────────────────────────────────────────────
   // Trimmed nutrition column per user request (2026-05-03).
   // Removed: TP, Cl, Ca, P, TIBC, TSAT, Ferritin, iPTH, Mg.
@@ -1211,7 +1247,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-03T21:11:59.624Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-17T01:51:05.481Z";
 }
 'use strict';
 

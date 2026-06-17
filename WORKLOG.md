@@ -1,5 +1,19 @@
 # WORKLOG
 
+## 2026-06-16 — sync patterns:新增 DC 五分類 + viewer「白血球分類 (DC)」section
+
+- 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
+- 範圍:sync-script bundle(mapping)
+- 變更:修改(auto-generated)
+- 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_viewer_wbc_dc_section.md`
+- 檔案:
+  - `mapping.js`:`node sync-patterns.js` 重產出 — 含 5 條新 DC catalog pattern(Neut/Lymph/Mono/Eos/Baso)+ 新 viewer section「白血球分類 (DC)」5 條 manifest entry。WBC 在「血液」section 不動,hi:10/lo:5 viewer override 不變。
+  - `normalizers.js`、`patterns-computed.js`:line-ending 重寫,內容相同
+- 原因:patterns repo 加 DC 五分類% catalog + viewer 新 section(YC 指定 display-only,無 hi/lo/refHistory),viewer mapping 需重 bundle 才會跟到。OPD handout col 3「血液」下方新增「白血球分類 (DC)」section 顯示 5 DC% — WBC 維持原位顯示。
+- 測試:`node sync-patterns.js` 成功;`mapping.js` 含 5 條 DC pattern + 新 section block(grep 確認)。真機 reload extension + 開 vhyl `000037249G` 確認 DC% 在新 section 顯示中性色、console 無 error 留待 YC 在 vhyl 機器上跑(brief T7 / T8 手動部分)
+- 相依:hospital-lab-patterns 同輪 commit + push(catalog.js + viewer.js + dist/patterns.json)
+- 影響:OPD popup 24h 內透過 `dist/patterns.json` 自動拿到(本地 reload extension 可立即生效;6h orders cache 要點 freshness ↻ 強刷才會用新 regex 重 parse);A5 manifest 不含 DC,A5 版面不變
+
 ## 2026-06-04 — sync patterns:Platelet regex 加 PLATE alternation
 
 - 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
