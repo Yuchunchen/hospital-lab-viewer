@@ -1,5 +1,27 @@
 # WORKLOG
 
+## 2026-06-17 — report.js page 2 render:補 AbdSono + 新 grid col 4 給 DC
+
+- 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
+- 範圍:report
+- 變更:修改(viewer-only,patterns 無動)
+- 對應 brief:`../hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_viewer_wbc_dc_section_done.md`(brief Open #3 收尾延伸)
+- 檔案:
+  - `report.js`:
+    - `buildPage2Column` filter 從 `(!t.col || t.col <= 2)` 改 `(t.kind === 'text' || !t.col || t.col <= 2)` — 把 AbdSono(col:3 text-kind)拉進左邊 lump,跟 BoneDensity/Endoscopy 一起 stack
+    - `hivCol` 加 `tests.filter(t => t.kind !== 'text')` — 防 AbdSono(col:3 text-kind)在 hivCol(buildColumn(2,3))跟左 lump 重複 render
+    - 新增 `dcCol = buildColumn(2, 4, ...)` — 讓 grid col 4 真的渲染 manifest 上 page:2 col:4 的 entry(DC 5 條),取代原本寫死的 `<div class="report-col"></div>`
+- 原因:6/17 真機測,第 2 頁只看到 BoneDensity + Endoscopy,**AbdSono 跟新 DC section 都沒出現**。查 report.js 發現 page 2 render path 是寫死的 layout:左 lump 只收 col<=2、中間 reminder、col 3 只接 HIV(checkbox)、col 4 寫死空。AbdSono col:3 早就是 pre-existing bug(只有 HIV checkbox 打開才順帶被撈出),DC col:4 是這次新增。一次修
+- 設計選擇:
+  - 不動 viewer manifest(AbdSono 仍 col:3 / DC 仍 col:4),只動 render path — manifest 是 source of truth,行為靠 report.js 對齊
+  - AbdSono 視覺上跟 BoneDensity/Endoscopy 都是 text-kind,放一起合理(都是文字 + 勾選格);DC 是數值,獨立 col 4
+  - 不擴張到 page 1 / A5(都沒這個問題)
+- 測試:
+  - node smoke:解析 viewer manifest 跑新 filter — grid col 1 lump=`[BoneDensity, Endoscopy, AbdSono]`、grid col 3 HIV-on=`[HIVLoad,CD4,RPR,TPHA]`、grid col 4 DC=`[Neut,Lymph,Mono,Eos,Baso]`、AbdSono 不重複命中 ✓
+  - 真機:reload extension(無需點 freshness,patterns 沒動;但若你想保險點再 ↻ 也行)→ 印 000037249G → 第 2 頁應該看到 BoneDensity / Endoscopy / AbdSono 在左,中間 reminder,(HIV 看你開不開),最右 DC 5 條
+- 相依:無(patterns 沒動,reporter 不受影響)
+- 影響:HIV 行為不變(checkbox 開:render HIVLoad/CD4/RPR/TPHA;關:col 3 空);AbdSono 從現在起會固定 render(不再仰賴 HIV checkbox 偶然帶出);DC 在右
+
 ## 2026-06-17 — sync patterns:DC section 從 page 1 col 3 移到 page 2 col 4
 
 - 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
