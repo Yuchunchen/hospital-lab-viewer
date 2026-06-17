@@ -935,10 +935,13 @@ const REPORT_CSS = `
   body.bw .reminder-list, body.bw .reminder-list li { color: #666 !important; }
 `;
 
-// ─── Build page-2 text-report column (col 1–2 entries only) ─────────────────
+// ─── Build page-2 text-report column (text-kind blocks lumped into grid col 1) ─
 function buildPage2Column(resultMap, tests, bw, gender) {
-  // Only include page-2 entries without a col, or col 1/2 (text-report blocks)
-  const p2Tests = tests.filter(t => t.page === 2 && (!t.col || t.col <= 2));
+  // Lump all text-kind blocks (BoneDensity / Endoscopy / AbdSono) into grid
+  // col 1 regardless of their manifest col field — they're small individually
+  // and visually belong together. Non-text entries on col 1/2 also fall in.
+  const p2Tests = tests.filter(t =>
+    t.page === 2 && (t.kind === 'text' || !t.col || t.col <= 2));
   if (!p2Tests.length) return '<div class="report-col"></div>';
 
   const order   = [];
@@ -1210,7 +1213,12 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
       ${legendHtml}
     </div>`;
 
-  const hivCol = hivReport ? buildColumn(2, 3, resultMap, tests, bw, gender) : '<div class="report-col"></div>';
+  // HIV col 3: text-kind entries excluded so AbdSono (col:3) doesn't double-
+  // render here AND in buildPage2Column's text-kind lump above.
+  const hivCol = hivReport
+    ? buildColumn(2, 3, resultMap, tests.filter(t => t.kind !== 'text'), bw, gender)
+    : '<div class="report-col"></div>';
+  const dcCol = buildColumn(2, 4, resultMap, tests, bw, gender);
   const page2 = hasPage2 ? `
     <div class="page">
       ${visitSerialOverlay}
@@ -1220,7 +1228,7 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
         ${buildPage2Column(resultMap, tests, bw, gender)}
         <div class="report-col">${reminderHtml}</div>
         ${hivCol}
-        <div class="report-col"></div>
+        ${dcCol}
       </div>
       ${legendHtml}
     </div>` : '';
