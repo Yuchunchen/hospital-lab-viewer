@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-17T04:26:08.562Z
+// Synced at: 2026-06-17T04:49:55.945Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -1150,25 +1150,26 @@ const VIEWER_MANIFEST = [
   // PAGE 2 — text-block entries (DEXA / endoscopy / sono)
   // ═══════════════════════════════════════════════════════════════════════
 
+  // Page 2 layout — 2026-06-17 收斂為 col 1 文字報告 lump + col 2 數值
+  // (DC + HIV stacked);col 3 / 4 留空。Reminder box 已移除(不顯示)。
   { id:'BoneDensity', page:2, col:1, section:'骨質疏鬆 (Bone Density)' },
-  { id:'Endoscopy',   page:2, col:2, section:'胃鏡 (Endoscopy)' },
-  { id:'AbdSono',     page:2, col:3, section:'超音波 (Ultrasound)' },
+  { id:'Endoscopy',   page:2, col:1, section:'胃鏡 (Endoscopy)' },
+  { id:'AbdSono',     page:2, col:1, section:'超音波 (Ultrasound)' },
 
-  // ── Page 2 │ Col 4 │ 白血球分類 (DC) ─────────────────────────────────
-  // DC 五分類% display-only(catalog 無 hi/lo)。2026-06-17 從 page 1 col 3
-  // 移到 page 2 col 4(brief Open #3,col 3 加 5 行擠破版)。
-  { id:'Neut',  page:2, col:4, section:'白血球分類 (DC)' },
-  { id:'Lymph', page:2, col:4, section:'白血球分類 (DC)' },
-  { id:'Mono',  page:2, col:4, section:'白血球分類 (DC)' },
-  { id:'Eos',   page:2, col:4, section:'白血球分類 (DC)' },
-  { id:'Baso',  page:2, col:4, section:'白血球分類 (DC)' },
+  // ── Page 2 │ Col 2 │ 白血球分類 (DC) ─────────────────────────────────
+  // DC 五分類% display-only(catalog 無 hi/lo)。
+  { id:'Neut',  page:2, col:2, section:'白血球分類 (DC)' },
+  { id:'Lymph', page:2, col:2, section:'白血球分類 (DC)' },
+  { id:'Mono',  page:2, col:2, section:'白血球分類 (DC)' },
+  { id:'Eos',   page:2, col:2, section:'白血球分類 (DC)' },
+  { id:'Baso',  page:2, col:2, section:'白血球分類 (DC)' },
 
-  // ── Page 2 │ HIV section (only rendered when HIV checkbox is on) ─────
-  { id:'HIVLoad', page:2, col:3, section:'HIV', hivOnly:true },
-  { id:'CD4',     page:2, col:3, section:'HIV', hivOnly:true },
-  { id:'RPR',     page:2, col:3, section:'HIV', hivOnly:true,
+  // ── Page 2 │ Col 2 │ HIV section (only rendered when HIV checkbox is on)
+  { id:'HIVLoad', page:2, col:2, section:'HIV', hivOnly:true },
+  { id:'CD4',     page:2, col:2, section:'HIV', hivOnly:true },
+  { id:'RPR',     page:2, col:2, section:'HIV', hivOnly:true,
     computed:'RPR',  pattern:null, singleValue:true },
-  { id:'TPHA',    page:2, col:3, section:'HIV', hivOnly:true,
+  { id:'TPHA',    page:2, col:2, section:'HIV', hivOnly:true,
     computed:'TPHA', pattern:null, singleValue:true },
 
 ];
@@ -1248,7 +1249,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-17T04:26:08.562Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-17T04:49:55.945Z";
 }
 'use strict';
 

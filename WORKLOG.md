@@ -1,5 +1,30 @@
 # WORKLOG
 
+## 2026-06-17 — Page 2 layout 收斂 + 拔 reminder + sync patterns
+
+- 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
+- 範圍:report + sync-script bundle(mapping)
+- 變更:修改
+- 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_viewer_wbc_dc_section_done.md`(brief Open #3 延伸)
+- 檔案:
+  - `report.js`:
+    - `buildPage2Column` filter 從 `(t.kind === 'text' || !t.col || t.col <= 2)` 收緊為 `t.kind === 'text'` — 只 lump 文字報告,DC col:2(非 text-kind)不會被誤拉進左欄
+    - page 2 render path 改:`hivCol` / `dcCol` 兩個變數合併為單一 `page2Col2 = buildColumn(2, 2, ...)`,grid col 2 一口氣 render DC + HIV(HIV 上游 genderFilteredTests 已依 checkbox 過濾 hivOnly,所以 checkbox 關時 col 2 只有 DC)
+    - page 2 grid col 3 / 4 改寫死空 `<div class="report-col"></div>`
+    - 拔掉 `reminderHtml = buildReminderBox(findUnshownOrders(...))` 計算 + page 1 / page 2 兩處 render 點 — reminder box 不再顯示。`findUnshownOrders` / `buildReminderBox` 函式定義保留(無 cost,未來要回來再接)
+  - `mapping.js`:`node sync-patterns.js` 重產出,viewer manifest 含 BoneDensity/Endoscopy/AbdSono col:1、DC + HIV col:2 新 layout
+  - `normalizers.js`、`patterns-computed.js`:line-ending 重寫
+- 原因:YC 真機驗收期間決定 page 2 收斂到 2 個 grid col(左 = 三個文字報告,右 = DC + HIV stacked),并拿掉 reminder box(page 1 + page 2 都不要)。viewer manifest + report.js 一輪對齊。
+- 設計選擇:
+  - manifest 是 source of truth,col 改了 report.js render path 也要同步,不靠 hardcode layout 維持
+  - reminder 拔掉但不刪 findUnshownOrders/buildReminderBox 函式(surgical principle:刪可逆,留無害)
+  - 不動 page 1 layout / A5 / WBC
+- 測試:
+  - node smoke:用同步後的 mapping.js manifest 跑 filter 邏輯 — grid col 1 lump=`[BoneDensity,Endoscopy,AbdSono]`、grid col 2 (HIV-on)=`[Neut,Lymph,Mono,Eos,Baso,HIVLoad,CD4,RPR,TPHA]`、grid col 2 (HIV-off)=只剩 DC 5 條、DC 不會誤入左 lump、page 1 col 3 血液 ids 不變、WBC override hi=10 lo=5 不變 ✓
+  - 真機:reload extension + popup 點 freshness 強刷(patterns dist 換了)→ 印 000037249G → page 1 沒 reminder,page 2 左 3 個文字 section / 右 DC 5 條(HIV 看 checkbox)留待 YC 真機確認
+- 相依:hospital-lab-patterns 同輪 commit + push
+- 影響:HIV checkbox 行為不變;reminder 完全消失(可逆,findUnshownOrders 還在);A5 不受影響
+
 ## 2026-06-17 — report.js page 2 render:補 AbdSono + 新 grid col 4 給 DC
 
 - 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
