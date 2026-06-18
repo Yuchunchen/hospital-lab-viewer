@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-17T04:49:55.945Z
+// Synced at: 2026-06-18T14:19:09.959Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -144,31 +144,38 @@ const CATALOG = [
       { machine:'vhtt', refLo:120, refHi:320, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
     ] },
 
-  // DC 五分類百分比 (differential count, %) — vhyl sample 2026-06-16
-  // order name DC(YL); value line 不帶 (YL) suffix。display-only,無參考值。
-  // vhtt mnemonic 未確認 — 若 vhtt 不同名,於此加 alternation。
+  // DC 五分類百分比 (differential count, %) — vhyl + vhtt 雙家
+  // vhyl: order DC(YL),mnemonic NEUT/LYM/MONO/EOSINO/BASO,值各自一行。
+  // vhtt: order Differential Count(D.C),mnemonic Neutrophil / Lymophocyte(EHR 拼字,
+  //       非 Lymphocyte)/ Monocyte / Eosinophil / BASO|Basophil(兩變體都見過);reportText run-on 無分隔
+  //       (值後直接接下個 label,如 ...Monocyte: 4.4Neutrophil: 73.9...)。
+  // 故移除 `\b`:run-on 下「數字接字母」中間無 word boundary,留 `\b` 會抓不到。
+  // 改走 CBC 同慣例(HCT/MCV/Platelet 皆無 `\b`,靠「Label:」當分隔)。
+  // display-only,無參考值(Open #2 待 vhyl/vhtt 官方區間)。
+  // 真機驗證 vhtt(2026-06-18):000032118G / 000019606F(含更正報告)/ 000115014H 皆 BASO;
+  //   000105589G 為 Basophil 變體 → Baso pattern 用 (?:BASO|Basophil)。其餘四項跨病人一致。
   { id:'Neut',
-    pattern: /\bNEUT:\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:NEUT|Neutrophil):\s*([<>]?\s*[\d.]+)/,
     displayName:'嗜中性球 (Neutrophil %)', shortLabel:'Neut%',
     unit:'%', category:'血液' },
 
   { id:'Lymph',
-    pattern: /\bLYM:\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:LYM|Lymophocyte):\s*([<>]?\s*[\d.]+)/,
     displayName:'淋巴球 (Lymphocyte %)', shortLabel:'Lym%',
     unit:'%', category:'血液' },
 
   { id:'Mono',
-    pattern: /\bMONO:\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:MONO|Monocyte):\s*([<>]?\s*[\d.]+)/,
     displayName:'單核球 (Monocyte %)', shortLabel:'Mono%',
     unit:'%', category:'血液' },
 
   { id:'Eos',
-    pattern: /\bEOSINO:\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:EOSINO|Eosinophil):\s*([<>]?\s*[\d.]+)/,
     displayName:'嗜酸性球 (Eosinophil %)', shortLabel:'Eos%',
     unit:'%', category:'血液' },
 
   { id:'Baso',
-    pattern: /\bBASO:\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:BASO|Basophil):\s*([<>]?\s*[\d.]+)/,
     displayName:'嗜鹼性球 (Basophil %)', shortLabel:'Baso%',
     unit:'%', category:'血液' },
 
@@ -1249,7 +1256,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-17T04:49:55.945Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-18T14:19:09.959Z";
 }
 'use strict';
 
