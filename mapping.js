@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-18T14:19:09.959Z
+// Synced at: 2026-06-18T23:02:42.022Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -151,7 +151,7 @@ const CATALOG = [
   //       (值後直接接下個 label,如 ...Monocyte: 4.4Neutrophil: 73.9...)。
   // 故移除 `\b`:run-on 下「數字接字母」中間無 word boundary,留 `\b` 會抓不到。
   // 改走 CBC 同慣例(HCT/MCV/Platelet 皆無 `\b`,靠「Label:」當分隔)。
-  // display-only,無參考值(Open #2 待 vhyl/vhtt 官方區間)。
+  // display-only,永久不放參考值(YC 2026-06-18 取消 Open #2;DC 不做 alarm 上色)。
   // 真機驗證 vhtt(2026-06-18):000032118G / 000019606F(含更正報告)/ 000115014H 皆 BASO;
   //   000105589G 為 Basophil 變體 → Baso pattern 用 (?:BASO|Basophil)。其餘四項跨病人一致。
   { id:'Neut',
@@ -238,7 +238,10 @@ const CATALOG = [
     hiM:55, hiF:38,
     hi:55, lo:null,
     notes:'Pattern matches r-GT, R-GT, γ-GT, GGT, RGT — hospitals use various labels.',
-    refHistory: [{ machine:'*', refLo:null, refHi:55, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:55, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhtt', refLo:9, refHi:64, validFrom:'2026-06-18', source:'YC cross-reference 2026-06-18 — chartno 000015165F r-GT(TT) 正式報告印 9-64 IU/L(無性別分項)' },
+    ] },
 
   { id:'ALP',
     pattern: /(?:Alk[\s.\-]*P|ALP|Alkaline\s*Phosphatase):\s*([<>]?\s*[\d.]+)/i,
@@ -1256,7 +1259,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-18T14:19:09.959Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-18T23:02:42.022Z";
 }
 'use strict';
 
