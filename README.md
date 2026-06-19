@@ -39,7 +39,7 @@ sibling repo [`hospital-lab-patterns`](https://github.com/Yuchunchen/hospital-la
 they are overwritten by `node sync-patterns.js`.
 
 The extension also fetches `dist/patterns.json` from GitHub at runtime
-(24h cache), so OPD machines get pattern updates without re-sideloading.
+(24h cache), so OPD machines get pattern updates without reloading.
 
 ## Quick start
 
@@ -47,11 +47,8 @@ The extension also fetches `dist/patterns.json` from GitHub at runtime
 # After pattern changes in hospital-lab-patterns:
 node sync-patterns.js
 
-# Side-load to Chrome:
+# Load into Chrome (each machine pulls from GitHub, no zip):
 # chrome://extensions → Load unpacked → select this folder
-
-# Or distribute as zip:
-# The zip is built in the parent folder by Claude Code after changes
 ```
 
 ## Key features
