@@ -1,5 +1,27 @@
 # WORKLOG
 
+## 2026-06-19 — 健檢報告(cxr.html)預設排序改「輸入順序為主」
+
+- 作者:claude(Cowork,vhtt;小半徑單檔)
+- 範圍:viewer 單檔 `cxr.js`(不跨 repo、不動 catalog → 無 sync-patterns)
+- 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_健檢報告輸入順序排序.md`
+- 變更:修改
+- 檔案:
+  - `cxr.js`:
+    - `cxrState.sortKey` 預設 `'abnormal'` → `'inputOrder'`(不再異常浮頂)
+    - `cxrCompare` 新增 `inputOrder` 分支:第一鍵 `inputIdx`(病人貼上順序)、第二鍵 `cxrExamOrder`(CXR→BMD→CAC→LDCT)
+    - `cxrRunFromText`:flat 前對 `perPatient[i]` 每列 stamp `r.inputIdx = i`(error / noReport 佔位列一併)
+    - `abnormal` 分支保留(surgical,未刪);`filter-abnormal` checkbox 與 🔴 紅標不動
+- 原因:YC 要健檢報告以貼上清單順序呈現、每人報告連續放一起;明確不要異常浮頂(🔴 紅標保留視覺)。
+- 設計選擇:
+  - `results` 產出本來就是輸入順序(`uniq` 保序 + `perPatient` index 回填),破壞點只在 render sort → 加 `inputOrder` 鍵當預設即解
+  - 不刪 `abnormal` 分支(可逆);thead 無 inputOrder/abnormal 欄,預設靠 `sortKey` 初值控制
+- 測試:
+  - node 邏輯 harness(合成資料):T1 貼上序=顯示序 / T2 同人不拆、LDCT 不浮頂 / T3 同人內檢查序 / T4 異常不浮頂 / T6 noReport 定位 — 全 PASS
+  - 真機:reload extension + popup 貼一組亂序含異常清單核對順序、header 點擊臨時排序(T5)— 留待 YC
+- 執行模式:Cowork 改完停 working tree;commit / push + brief 改名 `_done` 歸 YC / Claude Code
+- 影響:只動健檢報告預設排序;popup / report / lab 流程不受影響;cleaning / cache 未碰(與 task #1 切開)
+
 ## 2026-06-17 — Page 2 layout 收斂 + 拔 reminder + sync patterns
 
 - 作者:claude(與 YC 共同,Claude Code workspace root 跨 repo)
