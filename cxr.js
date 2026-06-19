@@ -235,7 +235,7 @@ async function cxrRunPool(items, worker, concurrency, onDone) {
 // ─── State ─────────────────────────────────────────────────────────────
 const cxrState = {
   results: [],            // 每列 = 一個病人的一種檢查（CXR/BMD/CAC/LDCT）
-  sortKey: 'abnormal',    // 預設：異常浮頂（同 status 內按病歷號 group + 檢查類型序）
+  sortKey: 'inputOrder',  // 預設：使用者貼上順序（inputIdx，病人層級）→ 同人內 CXR→BMD→CAC→LDCT。'abnormal' 浮頂保留為非預設分支
   sortDir: 'asc',
   filterAbnormal: false,
   filterNoreport: false,
@@ -281,6 +281,12 @@ function cxrSummaryCell(row) {
 }
 
 function cxrCompare(a, b, key) {
+  // inputOrder：使用者貼上順序（inputIdx，病人層級）→ 同人內檢查類型序。預設排序，
+  // 每個人各檢查列連續不被拆;異常與否不影響位置（🔴 紅標獨立於排序）。
+  if (key === 'inputOrder') {
+    const d = (a.inputIdx ?? 9999) - (b.inputIdx ?? 9999);
+    return d !== 0 ? d : cxrExamOrder(a.examType) - cxrExamOrder(b.examType);
+  }
   // abnormal：status 浮頂（abnormal=0 > normal/pending=1 > noReport=2 > error=3），
   // 同 status 內 tie-break 仍按 group（病歷號 asc → 檢查類型序 asc）。
   if (key === 'abnormal') {
@@ -419,6 +425,9 @@ async function cxrRunFromText(rawText) {
     catch (e) { perPatient[i] = [{ chartno, examType: '', status: 'error', error: e && e.message ? e.message : String(e) }]; }
   }, 3, (d, t) => cxrSetProgress(d, t, '抓取'));
 
+  // 每列 stamp inputIdx = 該病人在貼上清單(uniq)的位置 → 供 'inputOrder' 預設排序用。
+  // error / noReport 佔位列一併 stamp,確保它們待在該病人的位置不亂跳。
+  perPatient.forEach((rows, i) => { if (rows) rows.forEach(r => { r.inputIdx = i; }); });
   cxrState.results = perPatient.flat().filter(Boolean);
   cxrRenderTable();
 
