@@ -67,7 +67,7 @@ and `hospital-lab-patterns/docs/sop-cowork-guide.md` (SOP-CW2).
 ### Build
 
 - **Pattern updates**: Edit `../hospital-lab-patterns/patterns/viewer.js` → `git commit && git push` → `cd hospital-lab-viewer && node sync-patterns.js` → reload extension at `chrome://extensions`. See [`../hospital-lab-patterns/docs/learning-workflow.md`](https://github.com/Yuchunchen/hospital-lab-patterns/blob/main/docs/learning-workflow.md) for the Claude-driven pattern-learning recipe.
-- **Auto-zip**: After every code change, repackage the extension into `hospital-lab-viewer.zip` in the **parent folder** (`D:\self\Dropbox\1.Project.YuLi\20251005.lab_report\`). Include only the extension files: `manifest.json`, `popup.html`, `popup.js`, `report.js`, `report-viewer.html`, `report-viewer.js`, `mapping.js`, `patterns-computed.js`, `options.html`, `options.js`, `icon16.png`, `icon48.png`, `icon128.png`, `CLAUDE.md`. Exclude `sync-patterns.js`, `.tmp.*` files, and the zip itself.
+- **Distribution**: No local zip packaging. Each machine pulls the latest from GitHub and loads/reloads the **unpacked** extension at `chrome://extensions`. Pattern-only changes don't even need a reload — OPD picks up `dist/patterns.json` within 24h via runtime fetch (see pattern-loader.js).
 
 ---
 
@@ -129,7 +129,6 @@ sync-patterns.js 自動產生** — 不要手改。
   （皆由 sync 產生）
 - commit 後自動 `git push`；破壞性改動才先問
 - 不要刪除 WORKLOG.md 既有條目
-- 不要打包 `node_modules/` 或 `examples/`（皆已 gitignore）
 - 不要把真實病人 HTML / JSON / 圖片 commit 進去
 - 不要動 `manifest.json` 的 `host_permissions`（已是 `https://*/*`），
   除非真的有跨網域 fetch 需要
