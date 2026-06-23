@@ -280,17 +280,34 @@ function renderExamCell(exam) {
     : inner;
 }
 
-function renderLabCell(entry, testDef) {
+// ageAtReport approximation (age_dim §3): birth-year回推 from current age + the
+// value's report year. Returns null when age unknown, currentAge when the date
+// year can't be parsed.
+function ageAtReportFromInfo(patientInfo, dateStr) {
+  const currentAge = parseInt(patientInfo && patientInfo.age, 10);
+  if (isNaN(currentAge)) return null;
+  const s = String(dateStr || '').trim();
+  let m = s.match(/^(\d{4})-/) || s.match(/^(\d{4})\d{4}/);
+  let ry = m ? parseInt(m[1], 10) : null;
+  if (ry == null) { const sl = s.match(/^(\d{1,4})\//); if (sl) { ry = parseInt(sl[1], 10); if (ry < 1911) ry += 1911; } }
+  if (ry == null) return currentAge;
+  return ry - (new Date().getFullYear() - currentAge);
+}
+
+function renderLabCell(entry, testDef, patientInfo) {
   if (!entry) return '<span style="color:#bdc3c7;">—</span>';
   const val = entry.value;
   const num = parseFloat(val);
   let abnormal = false;
   if (testDef && !isNaN(num)) {
-    // machine × time ref via shared resolveRef (gender-neutral here — the
-    // Dashboard doesn't thread patient sex). Falls back to testDef.lo/hi.
+    // machine × time × gender × age ref via shared resolveRef. Falls back to
+    // testDef.lo/hi. Most Dashboard tests are eGFR/staging (gender/age-neutral),
+    // but thread the real values so future gender/age-dependent items resolve right.
     let hi = testDef.hi, lo = testDef.lo;
     if (typeof resolveRef === 'function' && testDef.id) {
-      const r = resolveRef(testDef.id, getMachineSource(), entry.date, null, window.TEST_MAP);
+      const gRaw = patientInfo && patientInfo.gender;
+      const g = gRaw === '男' ? 'M' : gRaw === '女' ? 'F' : null;
+      const r = resolveRef(testDef.id, getMachineSource(), entry.date, g, window.TEST_MAP, ageAtReportFromInfo(patientInfo, entry.date));
       if (r) { hi = r.refHi; lo = r.refLo; }
     }
     if (hi != null && num > hi) abnormal = true;
@@ -418,10 +435,10 @@ function renderTable() {
     if (r.error) {
       return `<tr class="row-error"><td class="col-chartno">${escHtml(r.chartno)}</td><td colspan="17">⚠️ ${escHtml(r.error)}</td></tr>`;
     }
-    const uacrCell = renderLabCell(r.values?.uacr, catById('UACR'));
-    const upcrCell = renderLabCell(r.values?.upcr, catById('UPCR'));
-    const sugCell  = renderLabCell(r.values?.sugar, catById('GluAC'));
-    const hbaCell  = renderLabCell(r.values?.hba1c, catById('HbA1c'));
+    const uacrCell = renderLabCell(r.values?.uacr, catById('UACR'), r.patientInfo);
+    const upcrCell = renderLabCell(r.values?.upcr, catById('UPCR'), r.patientInfo);
+    const sugCell  = renderLabCell(r.values?.sugar, catById('GluAC'), r.patientInfo);
+    const hbaCell  = renderLabCell(r.values?.hba1c, catById('HbA1c'), r.patientInfo);
     const ekgCell  = renderExamCell(r.exams?.EKG);
     const abiCell  = renderExamCell(r.exams?.ABI);
     const pvrCell  = renderExamCell(r.exams?.PVR);
