@@ -1,5 +1,26 @@
 # WORKLOG
 
+## 2026-06-24 — §4.3 無值項目靜默顯示最新 ref(去 resolveRef warn 噪音)
+
+- 作者:claude(與 YC 共同,Claude Code)
+- 範圍:viewer `report.js`
+- 變更:修改(buildRefDisplay 呼叫點)
+- 檔案:report.js
+- 內容:
+  - §4.3 改 full-scope 後,`buildRefDisplay` 會對**每個**帶 refHistory 的 entry 呼叫 resolveRef,
+    含「此病人沒驗、無檢驗值報告日」的項目(例 vhyl Fe/VitB12/FolicAcid/AFP/CA199/CA125)。
+    這些的 `latestDate` 是 `''` → `resolveRef` 走 `warnOnce` 印
+    `[resolveRef] missing/unparseable reportDate ...`(非 crash,純 dev console 噪音)。
+  - 修法:取不到報告日時改傳明確的 `new Date()`(`const refDate = latestDate || new Date()`)給
+    `pickEntry` + 主 `resolveRef`;`normalizeRefDate` 認得 Date 物件 → 回今天 ISO → **不**觸發 warn,
+    且仍選到 machine-resolved 最新 refHistory(= 原 fallback-to-today 的結果)。
+  - **只動 report.js 這一處呼叫點**,不改 `resolveRef`(patterns 共享邏輯 / reporter 行為零變動);
+    `ageForLookup` 維持原樣(無值時用 patientAge);上色 / alarm 判定未碰。
+  - 有值項目不受影響:`latestDate` 為真時 `refDate === latestDate`,解析行為與修改前完全相同。
+- 測試:`node --check report.js` 綠。真機列印「部分 manifest 項目無值」的 vhyl 病人 →
+  F12 console 無 resolveRef warn、AFP 顯示 0.89–8.78(成功標準 #1/#2),有值/年齡帶 regression 留 YC 驗收。
+- 相依:viewer-only,不動 catalog / patterns → **無需 sync-patterns**。
+
 ## 2026-06-23 — ref range 年齡維 thread 進報告上色 + §4.3 動態 ref 顯示
 
 - 作者:claude(與 YC 共同,Claude Code)
