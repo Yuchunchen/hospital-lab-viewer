@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-23T16:39:54.573Z
+// Synced at: 2026-06-23T17:22:47.363Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -594,7 +594,7 @@ const CATALOG = [
     refLo:2.5, refHi:5.0, hi:5.0, lo:2.5,
     refHistory: [
       { machine:'*', refLo:2.5, refHi:5.0, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
-      { machine:'vhyl', refLo:1.6, refHi:2.6, validFrom:'2025-12-30', source:'auto-crawl 000012885I 2026-06-23' },
+      { machine:'vhyl', refLo:2.5, refHi:4.5, validFrom:'2025-12-30', source:'auto-crawl ref-scan 30pt 2026-06-24 (修正:原 012885I off-by-one 誤植 Mg 範圍 1.6-2.6;30 人主流 P=2.5-4.5)' },
     ] },
 
   { id:'Mg',
@@ -631,7 +631,10 @@ const CATALOG = [
     refLo:120, refHi:480,
     loM:134, hiM:415, loF:120, hiF:480,
     lo:120, hi:480,
-    refHistory: [{ machine:'*', refLo:120, refHi:480, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:120, refHi:480, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhyl', refLo:119, refHi:485, refLoM:135, refHiM:485, refLoF:119, refHiF:410, validFrom:'2026-06-01', source:'auto-crawl ref-scan 30pt 2026-06-24 (iron panel;validFrom 近似)' },
+    ] },
 
   // vhyl sample (2026-05-05): "更正報告 FE: 58TIBC: 267.00TS: 22"
   { id:'TSAT',
@@ -640,7 +643,10 @@ const CATALOG = [
     unit:'%', category:'鐵代謝',
     ref:'20–45 %',
     refLo:20, refHi:45, hi:45, lo:20,
-    refHistory: [{ machine:'*', refLo:20, refHi:45, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:20, refHi:45, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhyl', refLo:12, refHi:50, refLoM:15, refHiM:50, refLoF:12, refHiF:45, validFrom:'2026-03-31', source:'auto-crawl ref-scan 30pt 2026-06-24' },
+    ] },
 
   { id:'UIBC', computed:'UIBC', pattern:null,
     displayName:'不飽和鐵結合力 (UIBC)', shortLabel:'UIBC',
@@ -736,6 +742,7 @@ const CATALOG = [
     refHistory: [
       { machine:'*', refLo:null, refHi:20, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhtt', refLo:0, refHi:9.0, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
+      { machine:'vhyl', refLo:0.89, refHi:8.78, validFrom:'2026-06-10', source:'auto-crawl ref-scan 30pt 2026-06-24 (000023800G AFP 報告)' },
     ] },
 
   // vhyl sample (2026-05-25): "正式報告 CEA(YL): 7.37" — chartno 000023172B
@@ -748,7 +755,10 @@ const CATALOG = [
     unit:'ng/mL', category:'癌症指數',
     ref:'< 5 ng/mL（大腸直腸）',
     refLo:null, refHi:5, hi:5, lo:null,
-    refHistory: [{ machine:'*', refLo:null, refHi:5, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:null, refHi:5, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhyl', refLo:null, refHi:1.73, validFrom:'2026-06-01', source:'auto-crawl ref-scan 30pt 2026-06-24 (000117706G CEA 報告 <1.73;validFrom 近似)' },
+    ] },
 
   { id:'CA199',
     pattern: /CA.?19.?9:\s*([<>]?[\d.]+)/i,
@@ -1323,7 +1333,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-23T16:39:54.573Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-23T17:22:47.362Z";
 }
 'use strict';
 
