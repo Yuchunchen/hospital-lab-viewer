@@ -611,10 +611,15 @@ function buildRefDisplay(test, gender, patientAge, latestDate) {
   const ageForLookup = latestDate
     ? ageAtReportCalc(patientAge, latestDate)
     : (patientAge != null && !isNaN(patientAge) ? patientAge : null);
-  const item = resolveRef.pickEntry(test.id, getMachineSource(), latestDate, g, window.TEST_MAP, ageForLookup);
+  // No value → no report date. Pass an explicit "today" Date (not '' / undefined)
+  // so resolveRef resolves the newest ref silently instead of warnOnce-ing
+  // (age_dim §4.3 full-scope now hits valueless manifest entries). pickEntry
+  // already falls to today silently; only the main resolveRef call warns.
+  const refDate = latestDate || new Date();
+  const item = resolveRef.pickEntry(test.id, getMachineSource(), refDate, g, window.TEST_MAP, ageForLookup);
   if (!item) return staticRef;   // fell to outer fallback (no candidate) → static
 
-  const r = resolveRef(test.id, getMachineSource(), latestDate, g, window.TEST_MAP, ageForLookup);
+  const r = resolveRef(test.id, getMachineSource(), refDate, g, window.TEST_MAP, ageForLookup);
   if (!r) return staticRef;
 
   const ageSplit = (item.ageMin != null || item.ageMax != null);
