@@ -1,5 +1,31 @@
 # WORKLOG
 
+## 2026-06-23 — ref range 年齡維 thread 進報告上色 + §4.3 動態 ref 顯示
+
+- 作者:claude(與 YC 共同,Claude Code)
+- 範圍:viewer `report.js` / `dashboard.js`(+ sync 重產 `mapping.js`)
+- 變更:新增(年齡維 threading;§4.3 動態 ref 顯示)
+- 檔案:report.js、dashboard.js、mapping.js(auto-gen)
+- 內容:
+  - `report.js`:`valueStyle` 末加 `patientAge`(目前年齡 int),函式內用該 cell 日期算
+    `ageAtReport`(birthYear 回推,±1 歲邊界)再傳 `resolveRef` 第 6 參數;`patientAge` 一路
+    thread 過 buildColumn / buildPage2Column / buildSectionBox / buildTestBlock + A5 path。
+    新增 `ageAtReportCalc` / `reportYearOf`。保留「resolveRef 不可用 → legacy inline 性別」defensive fallback。
+  - `report.js` §4.3:新增 `buildRefDisplay`(+ `ageBandLabel`/`fmtRange`)。取「最新檢驗值報告日」
+    當時有效 entry(無值 → 最新 entry);**最精簡顯示**(不分的維度不顯示:性別分→男/女、年齡帶→
+    `≥50 歲`、皆不分→裸範圍)。**範圍 full**(YC 2026-06-23 拍板):**所有**帶 refHistory 的 entry
+    都走動態(消除 static `ref` 與上色基準的 drift);無 refHistory(computed/影像/定性)維持 static。
+    後果:只分性別的 entry 改成只顯示病人那一性別(如 `男 4.2–6.2`);純數值 entry 去小數尾零
+    (`4.0`→`4`);9 個「refHistory base 取自 lo/hi 警示值、非 refLo/refHi 教科書值」的 entry,
+    顯示值改為與上色一致的警示值(留 YC 驗收)。年齡 label 中文「歲」。`test.meaning` 註解行原樣保留。
+  - `dashboard.js`:`renderLabCell` 接 `patientInfo`,傳真實 gender(男/女→M/F)+ ageAtReport 給
+    resolveRef(原本 gender 傳 null、無 age 的不一致已修);新增 `ageAtReportFromInfo`。
+- 測試:vm 整合測 buildRefDisplay/ageAtReportCalc(年齡帶選對 + 性別 override + narrow 範圍 +
+  邊界年齡)通過;`node --check` 綠;sync 後 `mapping.js` 含 resolveRef 第 6 參數 + pickEntry。
+  真機含年齡帶 fixture 的上色切換留 YC 驗收(成功標準 #4)。
+- 相依:需 hospital-lab-patterns 先發版(resolveRef 年齡維 + pickEntry);本輪已 sync。
+  OPD 端 24h 內自動拿到新 dist/patterns.json。
+
 ## 2026-06-19 — 健檢報告(cxr.html)預設排序改「輸入順序為主」
 
 - 作者:claude(Cowork,vhtt;小半徑單檔)

@@ -440,22 +440,46 @@ function buildTextResultMap(orders, tests) {
   return map;
 }
 
+// ─── Age-at-report (age_dim §3) ────────────────────────────────────────────────
+// patientInfo.age is the patient's CURRENT age. Reference bands may differ by
+// age band, so for an older value we need the age that applied at the report
+// date. Approximate via birth year (±1yr boundary error, brief §3/§9.2):
+//   birthYearApprox = todayYear - currentAge;  ageAtReport = reportYear - birthYearApprox
+// Returns null when current age is unknown (→ resolveRef treats as age-agnostic);
+// returns currentAge unchanged when the report year can't be parsed.
+function reportYearOf(dateStr) {
+  if (!dateStr) return null;
+  const s = String(dateStr).trim();
+  let m = s.match(/^(\d{4})-/);          if (m) return parseInt(m[1], 10);          // ISO
+  m = s.match(/^(\d{1,4})\//);           if (m) { const y = parseInt(m[1], 10); return y < 1911 ? y + 1911 : y; } // ROC / 西元 slash
+  m = s.match(/^(\d{4})\d{4}/);          if (m) return parseInt(m[1], 10);          // compact YYYYMMDD
+  return null;
+}
+function ageAtReportCalc(currentAge, dateStr) {
+  if (currentAge == null || isNaN(currentAge)) return null;
+  const ry = reportYearOf(dateStr);
+  if (ry == null) return currentAge;
+  return ry - (new Date().getFullYear() - currentAge);
+}
+
 // ─── Value color ──────────────────────────────────────────────────────────────
 // Normal values inherit the default style (black, not bold) — only out-of-range
 // values get colored + bolded so they pop on the page.
 // isLatest: true for the most-recent (rightmost) value cell
 // gender:   '男' / '女' / '' — mapped to 'M'/'F' for resolveRef.
 // reportDate: this value's date (ROC "115/04/14"); resolveRef normalises it and
-//           picks the machine × time × gender ref. Falls back to test.lo/test.hi
-//           when resolveRef is unavailable (older bundle) or returns null.
-function valueStyle(val, test, bw, isLatest, gender, reportDate) {
+//           picks the machine × time × gender × age ref. Falls back to
+//           test.lo/test.hi when resolveRef is unavailable / returns null.
+// patientAge: patient's CURRENT age (int); converted to ageAtReport via the
+//           value's date before resolveRef so age bands match the report era.
+function valueStyle(val, test, bw, isLatest, gender, reportDate, patientAge) {
   const n = parseFloat(String(val).replace(/^[<>]\s*/, ''));
   let s = '';
   if (!isNaN(n)) {
     let hi = test.hi, lo = test.lo;
     const g = gender === '男' ? 'M' : gender === '女' ? 'F' : null;
     if (typeof resolveRef === 'function' && test && test.id) {
-      const r = resolveRef(test.id, getMachineSource(), reportDate, g, window.TEST_MAP);
+      const r = resolveRef(test.id, getMachineSource(), reportDate, g, window.TEST_MAP, ageAtReportCalc(patientAge, reportDate));
       if (r) { hi = r.refHi; lo = r.refLo; }
     } else {
       // Defensive fallback: legacy inline gender pick (pre-resolveRef bundle).
@@ -554,7 +578,60 @@ function buildTextBlock(test, entry) {
 }
 
 // ─── Build one test block (dispatches on kind) ───────────────────────────────
-function buildTestBlock(test, resultMap, bw, gender) {
+// ─── Reference-range display (age_dim §4.3) ────────────────────────────────────
+// Minimal, patient-specific ref text generated from the chosen refHistory entry.
+// FULL scope (YC 2026-06-23): EVERY entry with refHistory gets the dynamic
+// display (eliminates static-`ref` drift vs the values resolveRef actually
+// colours by). The chosen entry is the one valid at the patient's latest value
+// date (point-in-time); no value → newest entry (resolveRef@today). Only the
+// dimensions the entry actually splits on are shown — gender split → 男/女, age
+// band → e.g. ≥50 歲, neither → bare range. So an only-gender test shows just the
+// patient's own range (男 4.2–6.2), and a plain test shows one range (4–11);
+// numeric values render without trailing zeros (4.0 → 4). Entries WITHOUT
+// refHistory (computed / imaging / qualitative) keep their static catalog `ref`.
+// The manual annotation line (test.meaning) is rendered separately, untouched.
+function ageBandLabel(min, max) {
+  if (min != null && max != null) return min + '–' + max + ' 歲';
+  if (min != null) return '≥' + min + ' 歲';
+  if (max != null) return '≤' + max + ' 歲';
+  return '';
+}
+function fmtRange(lo, hi) {
+  if (lo != null && hi != null) return lo + '–' + hi;
+  if (lo != null) return '>' + lo;
+  if (hi != null) return '<' + hi;
+  return '';
+}
+function buildRefDisplay(test, gender, patientAge, latestDate) {
+  const staticRef = (test && test.ref) || '';
+  if (!test || !test.refHistory || !test.refHistory.length) return staticRef;
+  if (typeof resolveRef !== 'function' || typeof resolveRef.pickEntry !== 'function') return staticRef;
+
+  const g = gender === '男' ? 'M' : gender === '女' ? 'F' : null;
+  const ageForLookup = latestDate
+    ? ageAtReportCalc(patientAge, latestDate)
+    : (patientAge != null && !isNaN(patientAge) ? patientAge : null);
+  const item = resolveRef.pickEntry(test.id, getMachineSource(), latestDate, g, window.TEST_MAP, ageForLookup);
+  if (!item) return staticRef;   // fell to outer fallback (no candidate) → static
+
+  const r = resolveRef(test.id, getMachineSource(), latestDate, g, window.TEST_MAP, ageForLookup);
+  if (!r) return staticRef;
+
+  const ageSplit = (item.ageMin != null || item.ageMax != null);
+  const genderSplit = (g === 'M' || g === 'F') &&
+    (item.refLoM != null || item.refHiM != null || item.refLoF != null || item.refHiF != null ||
+     test.loM != null || test.hiM != null || test.loF != null || test.hiF != null);
+
+  const dims = [];
+  if (genderSplit) dims.push(g === 'M' ? '男' : '女');
+  if (ageSplit)    dims.push(ageBandLabel(item.ageMin, item.ageMax));
+  const range  = fmtRange(r.refLo, r.refHi);
+  const unit   = test.unit ? ' ' + test.unit : '';
+  const prefix = dims.length ? dims.join('，') + ' ' : '';
+  return (prefix + range + unit).trim();
+}
+
+function buildTestBlock(test, resultMap, bw, gender, patientAge) {
   if (test.kind === 'text') {
     return buildTextBlock(test, resultMap[test.id]);
   }
@@ -588,6 +665,7 @@ function buildTestBlock(test, resultMap, bw, gender) {
 
   // ── Standard 3-timepoint display ──────────────────────────────────
   const vals  = resultMap[test.id] || [];
+  const latestDate = (vals[0] && vals[0].date) || '';   // newest value's date (age_dim §4.3)
   const picked = vals.slice(0, MAX_HISTORY);
   const cells  = [];
   for (let i = picked.length; i < MAX_HISTORY; i++) cells.push(null);
@@ -611,7 +689,7 @@ function buildTestBlock(test, resultMap, bw, gender) {
         if (i === latestIdx) sty += 'background:#ddd;padding:0 3px;';
         return `<td style="${sty}">${h(c.value)}${star}</td>`;
       }
-      return `<td style="${valueStyle(c.value, test, bw, i === latestIdx, gender, c.date)}">${h(c.value)}</td>`;
+      return `<td style="${valueStyle(c.value, test, bw, i === latestIdx, gender, c.date, patientAge)}">${h(c.value)}</td>`;
     })
     .join('');
 
@@ -622,7 +700,7 @@ function buildTestBlock(test, resultMap, bw, gender) {
   return `
       <div class="test-block">
         <div class="test-name">${h(test.displayName)}</div>
-        <div class="test-ref">${h(test.ref)}</div>
+        <div class="test-ref">${h(buildRefDisplay(test, gender, patientAge, latestDate))}</div>
         ${meaningHtml}
         <table class="test-grid">
           <tr class="row-dates">${dateRow}</tr>
@@ -632,8 +710,8 @@ function buildTestBlock(test, resultMap, bw, gender) {
 }
 
 // ─── Build one section box ────────────────────────────────────────────────────
-function buildSectionBox(sectionName, tests, resultMap, bw, gender) {
-  const blocks = tests.map(t => buildTestBlock(t, resultMap, bw, gender)).join('');
+function buildSectionBox(sectionName, tests, resultMap, bw, gender, patientAge) {
+  const blocks = tests.map(t => buildTestBlock(t, resultMap, bw, gender, patientAge)).join('');
   return `
     <div class="section-box">
       <div class="section-title">${h(sectionName)}</div>
@@ -702,7 +780,7 @@ function buildReminderBox(unshown) {
 }
 
 // ─── Build one column ─────────────────────────────────────────────────────────
-function buildColumn(pageNum, colNum, resultMap, tests, bw, gender) {
+function buildColumn(pageNum, colNum, resultMap, tests, bw, gender, patientAge) {
   const colTests = tests.filter(t => t.page === pageNum && t.col === colNum);
   if (!colTests.length) return '<div class="report-col"></div>';
 
@@ -713,7 +791,7 @@ function buildColumn(pageNum, colNum, resultMap, tests, bw, gender) {
     bySection[t.section].push(t);
   });
 
-  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw, gender)).join('');
+  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw, gender, patientAge)).join('');
   return `<div class="report-col">${html}</div>`;
 }
 
@@ -936,7 +1014,7 @@ const REPORT_CSS = `
 `;
 
 // ─── Build page-2 text-report column (text-kind blocks lumped into grid col 1) ─
-function buildPage2Column(resultMap, tests, bw, gender) {
+function buildPage2Column(resultMap, tests, bw, gender, patientAge) {
   // Lump all text-kind blocks (BoneDensity / Endoscopy / AbdSono) into grid
   // col 1. Non-text page-2 entries (DC / HIV) go to grid col 2 via the
   // explicit buildColumn(2, 2, ...) call in generatePatientPages.
@@ -950,7 +1028,7 @@ function buildPage2Column(resultMap, tests, bw, gender) {
     bySection[t.section].push(t);
   });
 
-  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw, gender)).join('');
+  const html = order.map(s => buildSectionBox(s, bySection[s], resultMap, bw, gender, patientAge)).join('');
   return `<div class="report-col">${html}</div>`;
 }
 
@@ -1090,6 +1168,7 @@ function buildA5Page(patientInfo, orders, bw, title) {
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map(e => e.id);
 
+  const patientAge  = parseInt(age, 10);   // current age (NaN → resolveRef age-agnostic)
   const tests       = genderFilteredTests(gender, false);   // A5 不支援 HIV
   const numMap      = buildResultMap(orders, tests, patientInfo);
   const textMap     = buildTextResultMap(orders, tests);
@@ -1116,7 +1195,7 @@ function buildA5Page(patientInfo, orders, bw, title) {
     if (!test || test.kind === 'text') return '';
     const entry = (resultMap[id] || [])[0];
     const displayName = h(test.displayName || test.id);
-    const refText     = h(test.ref || '');
+    const refText     = h(buildRefDisplay(test, gender, patientAge, (entry && entry.date) || ''));
     if (!entry) {
       return `<tr><td class="name">${displayName}</td>` +
              `<td class="value">—</td>` +
@@ -1125,7 +1204,7 @@ function buildA5Page(patientInfo, orders, bw, title) {
     }
     const valStyle = entry._tag
       ? psaRatioStyle(entry._tag, bw)
-      : valueStyle(entry.value, test, bw, false, gender, entry.date);
+      : valueStyle(entry.value, test, bw, false, gender, entry.date, patientAge);
     return `<tr><td class="name">${displayName}</td>` +
            `<td class="value" style="${valStyle}">${h(entry.value)}</td>` +
            `<td class="ref">${refText}</td>` +
@@ -1173,6 +1252,7 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
     name = '', chartno = '', gender = '', age = '', printDate = '',
     visitSerial = null,
   } = patientInfo;
+  const patientAge   = parseInt(age, 10);   // current age (NaN → resolveRef age-agnostic)
   const tests        = genderFilteredTests(gender, hivReport);
   const numMap       = buildResultMap(orders, tests, patientInfo);
   const textMap      = buildTextResultMap(orders, tests);
@@ -1202,24 +1282,24 @@ function generatePatientPages(patientInfo, orders, bw, title, page1Only, hivRepo
       <div class="page-header">${h(headerTitle)}</div>
       <div class="page-sub">${subInfo}</div>
       <div class="report-4cols">
-        ${buildColumn(1, 1, resultMap, tests, bw, gender)}
-        ${buildColumn(1, 2, resultMap, tests, bw, gender)}
-        ${buildColumn(1, 3, resultMap, tests, bw, gender)}
-        ${buildColumn(1, 4, resultMap, tests, bw, gender)}
+        ${buildColumn(1, 1, resultMap, tests, bw, gender, patientAge)}
+        ${buildColumn(1, 2, resultMap, tests, bw, gender, patientAge)}
+        ${buildColumn(1, 3, resultMap, tests, bw, gender, patientAge)}
+        ${buildColumn(1, 4, resultMap, tests, bw, gender, patientAge)}
       </div>
       ${legendHtml}
     </div>`;
 
   // Page-2 grid col 2 — DC + HIV (HIV section auto-skipped when checkbox off
   // via genderFilteredTests's hivOnly filter).
-  const page2Col2 = buildColumn(2, 2, resultMap, tests, bw, gender);
+  const page2Col2 = buildColumn(2, 2, resultMap, tests, bw, gender, patientAge);
   const page2 = hasPage2 ? `
     <div class="page">
       ${visitSerialOverlay}
       <div class="page-header">${h(headerTitle)}</div>
       <div class="page-sub">${subInfo}　（第 2 頁）</div>
       <div class="report-4cols">
-        ${buildPage2Column(resultMap, tests, bw, gender)}
+        ${buildPage2Column(resultMap, tests, bw, gender, patientAge)}
         ${page2Col2}
         <div class="report-col"></div>
         <div class="report-col"></div>
