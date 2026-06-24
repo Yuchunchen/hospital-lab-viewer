@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-24T15:40:28.787Z
+// Synced at: 2026-06-24T23:10:54.634Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -89,6 +89,7 @@ const CATALOG = [
     refHistory: [
       { machine:'*', refLo:4, refHi:11, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhyl', refLo:5, refHi:10, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 (穩定單版,2021→2026 未改;原誤標 2026-03-31)' },
+      { machine:'vhtt', refLo:4, refHi:11, validFrom:'1900-01-01', source:'gap-fill single-report 000070213G @2026-06-12 (4.0-11.0 ×10³/µL,obs 1;= universal)' },
     ] },
 
   { id:'RBC',
@@ -299,6 +300,7 @@ const CATALOG = [
       { machine:'*', refLo:null, refHi:1.0, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhyl', refLo:0, refHi:1.2, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 玉里舊 ref(末見 2025-04-21;migration base 1900)' },
       { machine:'vhyl', refLo:0.2, refHi:1.2, validFrom:'2025-06-04', source:'time-dim rescan 2026-06-24 玉里新 ref(earliest 2025-06-04;原誤標 2026-03-31;30pt（full cohort）)' },
+      { machine:'vhtt', refLo:0.3, refHi:1.0, validFrom:'1900-01-01', source:'gap-fill single-report 000070213G @2026-06-12 (0.3-1.0 mg/dL,obs 1;= universal)' },
     ] },
 
   { id:'DBIL',
@@ -311,6 +313,7 @@ const CATALOG = [
       { machine:'*', refLo:null, refHi:0.18, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhyl', refLo:0, refHi:0.3, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 玉里舊 ref(末見 2025-04-21;migration base 1900)' },
       { machine:'vhyl', refLo:0, refHi:0.5, validFrom:'2025-06-04', source:'time-dim rescan 2026-06-24 玉里新 ref(earliest 2025-06-04;原誤標 2026-03-31;30pt（full cohort）)' },
+      { machine:'vhtt', refLo:0.03, refHi:0.18, validFrom:'1900-01-01', source:'gap-fill single-report 000070213G @2026-06-12 (0.03-0.18 mg/dL,obs 1;= universal)' },
     ] },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -573,6 +576,7 @@ const CATALOG = [
     refHistory: [
       { machine:'*', refLo:3.5, refHi:5.1, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhyl', refLo:3.5, refHi:5.1, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 (穩定單版,2021→2026 未改;原誤標 2026-03-31)' },
+      { machine:'vhtt', refLo:3.5, refHi:5.1, validFrom:'1900-01-01', source:'gap-fill single-report 000070213G @2026-06-12 (3.5-5.1 mmol/L,obs 1;= universal)' },
     ] },
 
   { id:'Cl',
@@ -1366,7 +1370,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-24T15:40:28.787Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-24T23:10:54.634Z";
 }
 'use strict';
 
