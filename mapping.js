@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-24T08:28:57.673Z
+// Synced at: 2026-06-24T09:57:38.759Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -636,6 +636,8 @@ const CATALOG = [
     refHistory: [
       { machine:'*', refLo:50, refHi:175, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhtt', refLo:50, refHi:175, refLoM:50, refHiM:175, refLoF:50, refHiF:175, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md + 委外:新南海 (vhtt 印 universal 50-175,inline 性別 mirror 是為了 suppress outer loM:65/hiF:170 fallback)' },
+      { machine:'vhyl', refLo:33, refHi:193, refLoM:33, refHiM:193, refLoF:33, refHiF:193, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 玉里舊 Fe(33-193 無性別,inline mirror suppress 外層;末見 2025-04-26)' },
+      { machine:'vhyl', refLo:50, refHi:175, refLoM:65, refHiM:175, refLoF:50, refHiF:170, validFrom:'2025-06-04', source:'time-dim rescan 2026-06-24 玉里新 Fe(M65-175,F50-170;earliest 2025-07-17;30pt iron-panel 增強 parser)' },
     ] },
 
   { id:'TIBC',
@@ -648,7 +650,8 @@ const CATALOG = [
     lo:120, hi:480,
     refHistory: [
       { machine:'*', refLo:120, refHi:480, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
-      { machine:'vhyl', refLo:119, refHi:485, refLoM:135, refHiM:485, refLoF:119, refHiF:410, validFrom:'2026-06-01', source:'auto-crawl ref-scan 30pt 2026-06-24 (iron panel;validFrom 近似)' },
+      { machine:'vhyl', refLo:250, refHi:400, refLoM:250, refHiM:400, refLoF:250, refHiF:400, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 玉里舊 TIBC(250-400 無性別,inline mirror;末見 2025-04-26)' },
+      { machine:'vhyl', refLo:119, refHi:485, refLoM:135, refHiM:485, refLoF:119, refHiF:410, validFrom:'2025-06-04', source:'time-dim rescan 2026-06-24 玉里新 TIBC(M135-485,F119-410;earliest 2025-07-17;30pt;原誤標 2026-06-01)' },
     ] },
 
   // vhyl sample (2026-05-05): "更正報告 FE: 58TIBC: 267.00TS: 22"
@@ -679,7 +682,10 @@ const CATALOG = [
     loM:21.81, hiM:274.66, loF:4.63, hiF:204.00,
     lo:4.63, hi:274.66,
     notes:'Capture allows leading <> operator (handles "<5.0", ">2000" results).',
-    refHistory: [{ machine:'*', refLo:4.63, refHi:274.66, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' }] },
+    refHistory: [
+      { machine:'*', refLo:4.63, refHi:274.66, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
+      { machine:'vhyl', refLo:4.63, refHi:274.66, refLoM:21.81, refHiM:274.66, refLoF:4.63, refHiF:204, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 (穩定 M21.81-274.66,F4.63-204,2021→2026 未改;30pt n9)' },
+    ] },
 
   // ═══════════════════════════════════════════════════════════════════════
   // PARATHYROID + VITAMINS
@@ -757,7 +763,8 @@ const CATALOG = [
     refHistory: [
       { machine:'*', refLo:null, refHi:20, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhtt', refLo:0, refHi:9.0, validFrom:'2026-05-28', source:'YC SOP C 觸發 2026-05-28 cross-reference 12 chart batch — see docs/cross-reference-vhtt-2026-05-28.md' },
-      { machine:'vhyl', refLo:0.89, refHi:8.78, validFrom:'2026-06-10', source:'auto-crawl ref-scan 30pt 2026-06-24 (000023800G AFP 報告)' },
+      { machine:'vhyl', refLo:null, refHi:8.8, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 玉里舊 AFP(<8.8;末見 2025-04-10)' },
+      { machine:'vhyl', refLo:0.89, refHi:8.78, validFrom:'2025-06-04', source:'time-dim rescan 2026-06-24 玉里新 AFP(0.89-8.78;earliest 2025-06-17;30pt;原誤標 2026-06-10)' },
     ] },
 
   // vhyl sample (2026-05-25): "正式報告 CEA(YL): 7.37" — chartno 000023172B
@@ -772,7 +779,7 @@ const CATALOG = [
     refLo:null, refHi:5, hi:5, lo:null,
     refHistory: [
       { machine:'*', refLo:null, refHi:5, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
-      { machine:'vhyl', refLo:null, refHi:1.73, validFrom:'2026-06-01', source:'auto-crawl ref-scan 30pt 2026-06-24 (000117706G CEA 報告 <1.73;validFrom 近似)' },
+      { machine:'vhyl', refLo:null, refHi:5.0, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 (穩定 <=5.0,2021→2026 未改;30pt n25;修正:前 30-scan 把值 1.73 誤當 ref)' },
     ] },
 
   { id:'CA199',
@@ -1348,7 +1355,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-24T08:28:57.673Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-24T09:57:38.759Z";
 }
 'use strict';
 
