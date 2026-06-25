@@ -75,21 +75,71 @@ function setMachineSource(m) {
 }
 
 // ─── Split Input Into Multiple IDs ───────────────────────────────────────────
-// Two modes (auto-detected per line):
-//   1. TABULAR PASTE (≥5 tab cells) → col 5 (index 4) chartno, col 1 visitSerial.
-//   2. FREE-FORM: split on comma, semicolon, pipe, or whitespace.
+// Two modes (auto-detected):
+//   1. TABULAR PASTE (lines contain tabs) → column roles are auto-detected from
+//      the first ≤3 tab rows, ORDER-AGNOSTIC (欄位順序可能互換, 2026-06-26):
+//        • chartno column = the column whose sampled cells all match the chart-
+//          number pattern (1–9 digits + 1 letter, e.g. 000810385G).
+//        • visitSerial column = an integer column whose values DIFFER across the
+//          sampled rows. Tie-break (多欄都變動時): col 6 (index 5) preferred,
+//          else leftmost candidate. Needs ≥2 sampled rows — a single tabular
+//          row yields visitSerial = null (YC 2026-06-26 拍板).
+//      Replaces the old hard-coded col-5 chartno / col-1 serial assumption;
+//      handles the new col-3 chartno / col-6 serial layout and future swaps.
+//      Detection failure (no chartno-pattern column) → that line falls through
+//      to free-form, so valid chartno cells are still recovered downstream.
+//   2. FREE-FORM (no tabs): split on comma, semicolon, pipe, or whitespace;
+//      visitSerial = null.
 // Returns: Array<{chartno: string, visitSerial: string|null}>
+function detectTabularColumns(rows) {
+  // rows: Array<string[]> of trimmed cells (tab-containing lines, ≤3 sampled).
+  const CHARTNO_CELL_RE = /^\d{1,9}[A-Za-z]$/;   // 9碼(含補零前)+ 1 字母
+  const INT_CELL_RE     = /^\d+$/;
+  const nCols = Math.max(...rows.map(r => r.length));
+
+  // chartno 欄:該欄所有非空 sampled cell 都符合病歷號 pattern,取最左。
+  let chartCol = -1;
+  for (let c = 0; c < nCols; c++) {
+    const cells = rows.map(r => (r[c] || '').trim()).filter(Boolean);
+    if (cells.length && cells.every(v => CHARTNO_CELL_RE.test(v))) { chartCol = c; break; }
+  }
+
+  // serial 欄:整數且各列不同(需 ≥2 列才能比對「上下列不一樣」)。
+  let serialCol = -1;
+  if (rows.length >= 2) {
+    const candidates = [];
+    for (let c = 0; c < nCols; c++) {
+      if (c === chartCol) continue;
+      const cells = rows.map(r => (r[c] || '').trim()).filter(Boolean);
+      if (cells.length < 2) continue;
+      if (!cells.every(v => INT_CELL_RE.test(v))) continue;
+      if (new Set(cells).size > 1) candidates.push(c);
+    }
+    if (candidates.includes(5)) serialCol = 5;            // 第6欄優先
+    else if (candidates.length) serialCol = candidates[0]; // 否則取最左
+  }
+  return { chartCol, serialCol };
+}
+
 function splitChartInput(raw) {
   const tokens = [];
-  raw.split(/\r?\n/).forEach(line => {
-    if (!line.trim()) return;
-    const cells = line.split('\t');
-    if (cells.length >= 5) {
-      const chartno     = cells[4].trim();
-      const visitSerial = cells[0].trim() || null;
+  const lines = (raw || '').split(/\r?\n/).filter(l => l.trim());
+  const tabRows = lines.filter(l => l.includes('\t'))
+                       .slice(0, 3)
+                       .map(l => l.split('\t').map(s => s.trim()));
+  const { chartCol, serialCol } = tabRows.length
+    ? detectTabularColumns(tabRows)
+    : { chartCol: -1, serialCol: -1 };
+
+  lines.forEach(line => {
+    if (line.includes('\t') && chartCol >= 0) {
+      const cells = line.split('\t').map(s => s.trim());
+      const chartno     = cells[chartCol] || '';
+      const visitSerial = (serialCol >= 0 ? cells[serialCol] : '') || null;
       if (chartno) tokens.push({ chartno, visitSerial });
       return;
     }
+    // Free-form line (no tabs, or tabular detection failed for this paste).
     line.split(/[,;|\s]+/).forEach(t => {
       const s = t.trim();
       if (s) tokens.push({ chartno: s, visitSerial: null });

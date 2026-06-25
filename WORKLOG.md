@@ -1,5 +1,31 @@
 # WORKLOG
 
+## 2026-06-26 — splitChartInput 改欄位順序無關自動偵測(tabular paste)
+
+- 作者:claude(與 YC 共同,Cowork)
+- 範圍:viewer `lab-core.js`(共用 `splitChartInput`,popup / dashboard / cxr 共三處 call site)
+- 變更:修改(tabular paste 欄位偵測邏輯)
+- 檔案:lab-core.js
+- 動機:HIS 排程畫面貼上的病患清單欄位順序可能互換(現況 chartno 在第 3 欄、掛號序號在
+  第 6 欄),原本寫死「col 5 = chartno、col 1 = visitSerial」會抓錯。
+- 內容:
+  - 新增 `detectTabularColumns(rows)`:取前 ≤3 個含 tab 的列 sample,**順序無關**偵測欄位角色。
+    - chartno 欄 = 該欄所有非空 sample cell 都符合病歷號 pattern `^\d{1,9}[A-Za-z]$`(9 碼含補零前 + 1 字母),取最左符合者。
+    - visitSerial 欄 = 整數欄(`^\d+$`)且各列數值不同(需 ≥2 列才能比對「上下列不一樣」);
+      tie-break(多欄都變動時):**第 6 欄(index 5)優先,否則取最左**(YC 2026-06-26 拍板)。
+  - `splitChartInput`:先 sample 偵測欄位 index,再逐行抽取;含 tab 且偵測到 chartno 欄 → tabular 路徑,
+    否則走 free-form(逗號 / 分號 / pipe / whitespace)。
+  - 邊界決策(YC 2026-06-26 拍板):
+    - **單列 tabular**(只有 1 個 tab 列)→ 無上下列可比 → `visitSerial = null`。
+    - 偵測失敗(全表找不到 chartno-pattern 欄)→ 該 paste 退回 free-form,有效 chartno cell 仍由
+      下游 `formatChartNo` 撈回,不會整批 silent fail。
+  - 回傳結構 `Array<{chartno, visitSerial}>` **不變** → 5 個 call site 不需動(非 breaking change)。
+- 測試:獨立 Node 測試(複製函式邏輯)12 條全綠 —— 新格式 col3/col6、舊格式 col5/col1(向後相容)、
+  欄位互換、單列無序號、多整數變動欄 tie-break(第6欄優先 / 無第6欄取最左)、常數整數欄不誤判為序號、
+  free-form、單一 chartno、空 chartno cell 跳過、CRLF。真機 popup 貼上實測待 YC 驗收。
+- 相依:viewer-only,不動 catalog / patterns → **無需 sync-patterns**;reporter 的 `parseChartNoList`
+  為各自獨立實作,本輪未碰。
+
 ## 2026-06-24 — §4.3 無值項目靜默顯示最新 ref(去 resolveRef warn 噪音)
 
 - 作者:claude(與 YC 共同,Claude Code)
