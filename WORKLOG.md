@@ -1,5 +1,19 @@
 # WORKLOG
 
+## 2026-07-23 — sync patterns：CBC Hb/Platelet regex 補 HB / PLT label 變體
+
+- 作者：claude（與 YC 共同，Claude Code）
+- 範圍：sync-script（重跑 sync-patterns.js，重產 mapping.js）
+- 變更：修改
+- 檔案：mapping.js（auto-generated）
+- 原因：patterns 端補上 CBC Hb/Platelet regex 的 `HB:` / `PLT:` 全大寫 label 變體
+  （vhyl CBC(YL) 印全大寫 HB: 與 PLT:；vhtt 同症狀）。universal pattern，兩台共用。
+  已驗 000105598H / 000044149G 零回歸。
+- 測試：`node sync-patterns.js` 重產成功；mapping.js 內嵌 Hb = `(?:Hb|HGB|HB):`、
+  Platelet = `(?:Platelet|PLATE|PLT):`，與 patterns 端一致。
+- 相依：需 hospital-lab-patterns 先發版（本輪同步完成）；reload extension 生效，
+  OPD 另會在 24h 內經 dist/patterns.json 自動拿到。
+
 ## 2026-06-26 — splitChartInput 改欄位順序無關自動偵測(tabular paste)
 
 - 作者:claude(與 YC 共同,Cowork)
