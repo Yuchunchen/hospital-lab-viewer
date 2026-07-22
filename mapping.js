@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-06-24T23:10:54.634Z
+// Synced at: 2026-07-22T22:43:43.572Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -107,7 +107,7 @@ const CATALOG = [
     ] },
 
   { id:'Hb',
-    pattern: /(?:Hb|HGB):\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:Hb|HGB|HB):\s*([<>]?\s*[\d.]+)/,
     displayName:'血色素 (Hemoglobin)', shortLabel:'Hb',
     unit:'g/dL', category:'血液',
     ref:'男 14–18，女 12–16 g/dL',
@@ -148,7 +148,7 @@ const CATALOG = [
     ] },
 
   { id:'Platelet',
-    pattern: /(?:Platelet|PLATE):\s*([<>]?\s*[\d.]+)/,
+    pattern: /(?:Platelet|PLATE|PLT):\s*([<>]?\s*[\d.]+)/,
     displayName:'血小板 (Platelet)', shortLabel:'PLT',
     unit:'×10³/µL', category:'血液',
     ref:'150–400 ×10³/µL',
@@ -1370,7 +1370,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-06-24T23:10:54.634Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-07-22T22:43:43.572Z";
 }
 'use strict';
 
