@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-07-22T22:43:43.572Z
+// Synced at: 2026-10-16T04:25:09.879Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -501,8 +501,12 @@ const CATALOG = [
     // 報告（label `RATIO: N` 而非新格式 `ALB/CR: N`）。`RATIO:` 也出現在
     // Free PSA 報告，故必須以 `orderNameFilter` 限制在 microalbumin order
     // 內才匹配（FreePSA 那邊也已有對稱的 orderNameFilter）。
+    // 2026-10-16：vhtt 自 115/07/17 起把 Microalbumin 與 Urine Creatinine 拆成
+    // 兩張 order，`ALB/CR:` 印在 `Urine Creatinine(TT)` 那張（mALB 那張只有 mALB）
+    // → filter 補 `urine creatinine` / `creatinine(u)`（後者預防 vhyl 拆單）。
+    // 實例：vhtt 000036059I。
     pattern: /(?:U-?ACR|UACR|Alb(?:umin)?\/Cr(?:eatinine)?|Urine\s*Alb\/Cr|RATIO):\s*([<>]?\s*[\d.]+)/i,
-    orderNameFilter: /microalbumin/i,
+    orderNameFilter: /microalbumin|urine\s*creatinine|creatinine\(u\)/i,
     displayName:'尿白蛋白／肌酸酐比 (UACR)', shortLabel:'UACR',
     unit:'mg/g', category:'腎功能',
     ref:'< 30 mg/g',
@@ -1370,7 +1374,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-07-22T22:43:43.572Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-10-16T04:25:09.879Z";
 }
 'use strict';
 
