@@ -10,7 +10,7 @@
 //   3. cd hospital-lab-viewer && node sync-patterns.js
 //   4. Reload the extension at chrome://extensions
 //
-// Synced at: 2026-10-16T04:25:09.879Z
+// Synced at: 2026-10-16T04:28:53.125Z
 // ════════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -79,13 +79,13 @@ const CATALOG = [
   // ═══════════════════════════════════════════════════════════════════════
 
   { id:'WBC',
-    pattern: /WBC:\s*([<>]?\s*[\d.]+)(?!\s*[-–]\s*\d)/,
+    pattern: /WBC:\s*([<>]?\s*[\d.]+)(?![\d.]|\s*[-–]\s*\d)/,
     displayName:'白血球 (WBC)', shortLabel:'WBC',
     unit:'×10³/µL', category:'血液',
     ref:'4.0–11.0 ×10³/µL',
     refLo:4.0, refHi:11.0, hi:11, lo:4,
     normalize: 'wbcCount',
-    notes:'Negative lookahead in pattern rejects urine routine "WBC: 0-5". Normalize handles /µL (e.g. 6700) → ×10³/µL (6.7).',
+    notes:'Negative lookahead in pattern rejects urine routine "WBC: 0-5". Normalize handles /µL (e.g. 6700) → ×10³/µL (6.7). 2026-09-02: lookahead 加 (?![\\d.]) 擋回溯 — vhyl 000170608H 尿液 "WBC: 10-19" 原被回溯截成血液 WBC=1（單位數 range 如 0-5 無法回溯所以先前沒現）。',
     refHistory: [
       { machine:'*', refLo:4, refHi:11, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhyl', refLo:5, refHi:10, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 (穩定單版,2021→2026 未改;原誤標 2026-03-31)' },
@@ -93,14 +93,14 @@ const CATALOG = [
     ] },
 
   { id:'RBC',
-    pattern: /\bRBC:\s*([<>]?\s*[\d.]+)(?!\s*[-–]\s*\d)/,
+    pattern: /\bRBC:\s*([<>]?\s*[\d.]+)(?![\d.]|\s*[-–]\s*\d)/,
     displayName:'紅血球 (RBC)', shortLabel:'RBC',
     unit:'×10⁶/µL', category:'血液',
     ref:'男 4.2–6.2，女 3.7–5.5 ×10⁶/µL',
     refLo:3.7, refHi:6.2,
     loM:4.2, hiM:6.2, loF:3.7, hiF:5.5,
     lo:3.7, hi:6.2,
-    notes:'Negative lookahead rejects urine routine "RBC: 0-2/HPF" ranges (2026-05-12, parallel to WBC). vhyl 000012148C surfaced URINE ROUTINE(YL) "RBC: 0-2" being captured as blood RBC=0.',
+    notes:'Negative lookahead rejects urine routine "RBC: 0-2/HPF" ranges (2026-05-12, parallel to WBC). vhyl 000012148C surfaced URINE ROUTINE(YL) "RBC: 0-2" being captured as blood RBC=0. 2026-09-02: 同 WBC 加 (?![\\d.]) 擋回溯（同病人 000170608H 尿液 "RBC: 30-49" 會被截成 3）。',
     refHistory: [
       { machine:'*', refLo:3.7, refHi:6.2, validFrom:'1900-01-01', source:'migration 起點 — universal ref 既有值' },
       { machine:'vhyl', refLo:4.2, refHi:6, refLoM:4.5, refHiM:6, refLoF:4.2, refHiF:5.5, validFrom:'1900-01-01', source:'time-dim rescan 2026-06-24 (穩定單版,2021→2026 未改;原誤標 2026-03-31)' },
@@ -1374,7 +1374,7 @@ var TEST_MAP = VIEWER_CATALOG;
 if (typeof window !== "undefined") {
   window.TEST_MAP        = TEST_MAP;
   window.VIEWER_CATALOG  = VIEWER_CATALOG;
-  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-10-16T04:25:09.879Z";
+  window.HOSPITAL_LAB_PATTERNS_BUNDLED_AT = "2026-10-16T04:28:53.125Z";
 }
 'use strict';
 
