@@ -1,5 +1,16 @@
 # WORKLOG
 
+## 2026-10-16 — README 改寫為院內安裝首頁（仿 VaxCheck）+ 一鍵下載腳本 scripts/install.ps1
+
+- 作者：claude（Cowork，vhtt；YC 指定格式參考 Yuchunchen/VaxCheck）
+- 範圍：docs + 新增 scripts/install.ps1（不動外掛程式本身）
+- README：繁中改寫——隱私前提、功能、環境需求、院內安裝（PowerShell 一鍵下載＋錯誤訊息對照表）、載入 Chrome 並釘選、首次設定（API 網址 vhtt/vhyl、OPSID、報告表頭、本機院區）、手動安裝、更新、回報問題；原開發者說明與檔案配置保留並更新到現況（lab-core / dashboard / cxr / llm-translate）。
+- install.ps1：下載 main 分支 zip → 桌面\hospital-lab-viewer；攤平 GitHub 的 hospital-lab-viewer-main 外層；manifest.name 必須含「院內報告小幫手」；既有資料夾若非本外掛或含 .git → 不刪、停止；保留資料夾路徑只換內容（外掛 ID 不變、設定保留）；複製路徑到剪貼簿並開 chrome://extensions。README 內嵌版與 scripts/install.ps1 內容相同（檔案版帶 UTF-8 BOM，供 PS 5.1 正確讀中文）。
+- 驗證：pwsh 7.4 解析 0 錯誤；以本 repo git archive 的 zip 模擬下載跑 5 種情境——全新安裝（28 檔、manifest 在頂層）、更新（舊殘檔被清掉）、桌面同名非本外掛資料夾（停止、檔案保留）、含 .git（停止）、空資料夾（安裝成功）皆符合預期。**未驗證**：真實從 GitHub 下載（雲端沙箱 proxy 擋 archive URL）、Windows PowerShell 5.1 實機執行——需 YC 在一台門診電腦實跑一次。
+- 隱私描述依現況寫：資料快取在本機 Chrome IndexedDB（6h TTL）；唯一固定對外連線為 GitHub patterns.json；健檢翻譯預設 mock，改用外部 LLM 時影像報告內文會送出。
+
+---
+
 ## 2026-07-23 — sync patterns：CBC Hb/Platelet regex 補 HB / PLT label 變體
 
 - 作者：claude（與 YC 共同，Claude Code）
