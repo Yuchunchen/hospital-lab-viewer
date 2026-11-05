@@ -1,5 +1,17 @@
 # WORKLOG
 
+## 2026-11-05 — sync patterns：CREAT / eGFR orderNameFilter 排除尿液單（尿 Cr 誤抓 → eGFR = 0）
+
+- 作者：claude（Claude Code，vhtt；patterns 由 Cowork 修、本機 release）
+- 範圍：sync-script（重跑 sync-patterns.js）
+- 變更：修改
+- 檔案：mapping.js、normalizers.js、patterns-computed.js（auto-generated；後兩檔只有 synced_at 時間戳）
+- 原因：patterns `4bbee93`——vhtt 個案 115/10/29 `腎利先鋒計畫 Urine Creatinine(TT) URINE` 的 `CREAT: 101`（尿 Cr）被 CREAT / eGFR pattern 誤抓，同日 dedup 蓋掉血清 0.9 → eGFR 顯示 0。兩 entry 加 `orderNameFilter: /^(?!.*(?:urine|creatinine\(u\))).*/i`。universal。
+- 測試：`node sync-patterns.js` 成功，mapping.js 帶出兩條新 filter；viewer `report.js` / `dashboard.js` 既有就會檢查 `orderNameFilter`，不需改程式。**未真機驗證**（需院內網路 reload extension 開 brief 所列個案，預期 eGFR 91）。
+- 影響：reload extension 生效；OPD 端 24h 內經 dist/patterns.json 自動拿到。
+
+---
+
 ## 2026-10-16 — README 改寫為院內安裝首頁（仿 VaxCheck）+ 一鍵下載腳本 scripts/install.ps1
 
 - 作者：claude（Cowork，vhtt；YC 指定格式參考 Yuchunchen/VaxCheck）
