@@ -79,7 +79,7 @@ function setMachineSource(m) {
 //   1. TABULAR PASTE (lines contain tabs) → column roles are auto-detected from
 //      the first ≤3 tab rows, ORDER-AGNOSTIC (欄位順序可能互換, 2026-06-26):
 //        • chartno column = the column whose sampled cells all match the chart-
-//          number pattern (1–9 digits + 1 letter, e.g. [病歷號]).
+//          number pattern (1–9 digits + 1 letter, e.g. 000000123X).
 //        • visitSerial column = an integer column whose values DIFFER across the
 //          sampled rows. Tie-break (多欄都變動時): col 6 (index 5) preferred,
 //          else leftmost candidate. Needs ≥2 sampled rows — a single tabular
@@ -149,12 +149,12 @@ function splitChartInput(raw) {
 }
 
 // ─── Chart Number Formatting ──────────────────────────────────────────────────
-// API requires exactly 9 digits + 1 uppercase letter, e.g. "[病歷號]"
+// API requires exactly 9 digits + 1 uppercase letter, e.g. "000000123X"
 function formatChartNo(raw) {
   const s = raw.trim();
   if (!s) throw new Error('Please enter a chart number.');
   const last = s[s.length - 1];
-  if (!/[a-zA-Z]/.test(last)) throw new Error('Chart number must end with a letter (e.g. [病歷號]).');
+  if (!/[a-zA-Z]/.test(last)) throw new Error('Chart number must end with a letter (e.g. 123X).');
   const letter = last.toUpperCase();
   const digitStr = s.slice(0, -1).replace(/\D/g, '');
   if (!digitStr) throw new Error('No digits found before the letter.');
@@ -456,7 +456,7 @@ async function enrichCachePut(ordapno, text) {
 
 // ─── Registry (個案管理) ──────────────────────────────────────────────────
 // schema: { chartno, name, enrollDate, category, lastScreenDate, notes }
-//   chartno: '[病歷號]'
+//   chartno: '000000123X'
 //   category: 'Early-CKD' | 'Pre-ESRD' | 'DM'  (字串;同病人可多角色,以逗號分隔)
 async function registryPut(record) {
   if (!record || !record.chartno) throw new Error('registryPut: chartno required');

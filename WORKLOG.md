@@ -1,5 +1,17 @@
 # WORKLOG
 
+## 2026-11-08 — 隱私：遮蔽病歷號（WORKLOG 與程式註解範例）
+
+- 作者：claude（Claude 雲端工作區，與 YC 共同；YC 2026-11-08 指示「將病歷碼隱匿」）
+- 範圍：docs + lab-core（註解）+ mockups
+- 變更：修改
+- 檔案：WORKLOG.md、lab-core.js、mockups/a5-layout-mockup.html
+- 原因：本 repo 為公開 repo，WORKLOG 與註解範例含真實病歷號（違反本檔「個案 chartNo 不可 commit」）。
+- 內容：WORKLOG 病歷號（含短格式）依檔內出現順序改 `[病歷號-A]`…（標籤只在本檔內一致）；`lab-core.js` 註解與 mockup 範例改假值 `000000123X`。`lab-core.js` 只改註解，程式邏輯未動。
+- 未做：`mapping.js`（sync 產出）內的病歷號來自 patterns catalog 註解；待 patterns 遮蔽並 release 後重跑 `node sync-patterns.js`。git 歷史仍含舊值，另案處理。
+- 測試：`node --check lab-core.js`；遮蔽後非產出檔掃描無殘留。
+- 相依：patterns repo 遮蔽 → release → 本 repo sync。
+
 ## 2026-11-05 — sync patterns：CREAT / eGFR orderNameFilter 排除尿液單（尿 Cr 誤抓 → eGFR = 0）
 
 - 作者：claude（Claude Code，vhtt；patterns 由 Cowork 修、本機 release）
@@ -29,7 +41,7 @@
 - 範圍：sync-script（重跑 sync-patterns.js）
 - 變更：修改
 - 檔案：mapping.js、normalizers.js、patterns-computed.js（auto-generated）
-- 原因：patterns `b8e0832`——WBC / RBC 的 negative lookahead 原本只擋「數字後緊接 -」，`[\d.]+` 回溯後尿液 `WBC: 10-19` 會被截成血液 WBC=1、`RBC: 30-49` 截成 3（vhyl [病歷號]）。lookahead 改為 `(?![\d.]|\s*[-–]\s*\d)`。universal。
+- 原因：patterns `b8e0832`——WBC / RBC 的 negative lookahead 原本只擋「數字後緊接 -」，`[\d.]+` 回溯後尿液 `WBC: 10-19` 會被截成血液 WBC=1、`RBC: 30-49` 截成 3（vhyl [病歷號-A]）。lookahead 改為 `(?![\d.]|\s*[-–]\s*\d)`。universal。
 - 測試：`node sync-patterns.js` 成功；patterns 端 node 驗證血液值照抓、尿液 range 全拒。
 - 影響：reload extension 生效；OPD 端 24h 內經 dist/patterns.json 自動拿到。（本條為事後補記，sync commit 當時未寫 WORKLOG）
 
@@ -41,7 +53,7 @@
 - 範圍：sync-script（重跑 sync-patterns.js）
 - 變更：修改
 - 檔案：mapping.js、normalizers.js、patterns-computed.js（auto-generated）
-- 原因：patterns `e9e5f09`——vhtt 自 115/07/17 起 Microalbumin 與 Urine Creatinine 拆成兩張 order，`ALB/CR:` 印在 `Urine Creatinine(TT)`，原 `orderNameFilter: /microalbumin/i` 把它濾掉，UACR 最新值停在舊值（vhtt [病歷號]）。filter 改為 `/microalbumin|urine\s*creatinine|creatinine\(u\)/i`。universal。
+- 原因：patterns `e9e5f09`——vhtt 自 115/07/17 起 Microalbumin 與 Urine Creatinine 拆成兩張 order，`ALB/CR:` 印在 `Urine Creatinine(TT)`，原 `orderNameFilter: /microalbumin/i` 把它濾掉，UACR 最新值停在舊值（vhtt [病歷號-B]）。filter 改為 `/microalbumin|urine\s*creatinine|creatinine\(u\)/i`。universal。
 - 測試：`node sync-patterns.js` 成功；patterns 端 node 驗證拆單抓到 158.68、合併單不變、Free PSA `RATIO:` 仍被濾。
 - 影響：reload extension 生效；OPD 端 24h 內自動拿到。（本條為事後補記）
 
@@ -55,7 +67,7 @@
 - 檔案：mapping.js（auto-generated）
 - 原因：patterns 端補上 CBC Hb/Platelet regex 的 `HB:` / `PLT:` 全大寫 label 變體
   （vhyl CBC(YL) 印全大寫 HB: 與 PLT:；vhtt 同症狀）。universal pattern，兩台共用。
-  已驗 [病歷號] / [病歷號] 零回歸。
+  已驗 [病歷號-C] / [病歷號-D] 零回歸。
 - 測試：`node sync-patterns.js` 重產成功；mapping.js 內嵌 Hb = `(?:Hb|HGB|HB):`、
   Platelet = `(?:Platelet|PLATE|PLT):`，與 patterns 端一致。
 - 相依：需 hospital-lab-patterns 先發版（本輪同步完成）；reload extension 生效，
@@ -177,7 +189,7 @@
   - 不動 page 1 layout / A5 / WBC
 - 測試:
   - node smoke:用同步後的 mapping.js manifest 跑 filter 邏輯 — grid col 1 lump=`[BoneDensity,Endoscopy,AbdSono]`、grid col 2 (HIV-on)=`[Neut,Lymph,Mono,Eos,Baso,HIVLoad,CD4,RPR,TPHA]`、grid col 2 (HIV-off)=只剩 DC 5 條、DC 不會誤入左 lump、page 1 col 3 血液 ids 不變、WBC override hi=10 lo=5 不變 ✓
-  - 真機:reload extension + popup 點 freshness 強刷(patterns dist 換了)→ 印 [病歷號] → page 1 沒 reminder,page 2 左 3 個文字 section / 右 DC 5 條(HIV 看 checkbox)留待 YC 真機確認
+  - 真機:reload extension + popup 點 freshness 強刷(patterns dist 換了)→ 印 [病歷號-E] → page 1 沒 reminder,page 2 左 3 個文字 section / 右 DC 5 條(HIV 看 checkbox)留待 YC 真機確認
 - 相依:hospital-lab-patterns 同輪 commit + push
 - 影響:HIV checkbox 行為不變;reminder 完全消失(可逆,findUnshownOrders 還在);A5 不受影響
 
@@ -199,7 +211,7 @@
   - 不擴張到 page 1 / A5(都沒這個問題)
 - 測試:
   - node smoke:解析 viewer manifest 跑新 filter — grid col 1 lump=`[BoneDensity, Endoscopy, AbdSono]`、grid col 3 HIV-on=`[HIVLoad,CD4,RPR,TPHA]`、grid col 4 DC=`[Neut,Lymph,Mono,Eos,Baso]`、AbdSono 不重複命中 ✓
-  - 真機:reload extension(無需點 freshness,patterns 沒動;但若你想保險點再 ↻ 也行)→ 印 [病歷號] → 第 2 頁應該看到 BoneDensity / Endoscopy / AbdSono 在左,中間 reminder,(HIV 看你開不開),最右 DC 5 條
+  - 真機:reload extension(無需點 freshness,patterns 沒動;但若你想保險點再 ↻ 也行)→ 印 [病歷號-E] → 第 2 頁應該看到 BoneDensity / Endoscopy / AbdSono 在左,中間 reminder,(HIV 看你開不開),最右 DC 5 條
 - 相依:無(patterns 沒動,reporter 不受影響)
 - 影響:HIV 行為不變(checkbox 開:render HIVLoad/CD4/RPR/TPHA;關:col 3 空);AbdSono 從現在起會固定 render(不再仰賴 HIV checkbox 偶然帶出);DC 在右
 
@@ -227,7 +239,7 @@
   - `mapping.js`:`node sync-patterns.js` 重產出 — 含 5 條新 DC catalog pattern(Neut/Lymph/Mono/Eos/Baso)+ 新 viewer section「白血球分類 (DC)」5 條 manifest entry。WBC 在「血液」section 不動,hi:10/lo:5 viewer override 不變。
   - `normalizers.js`、`patterns-computed.js`:line-ending 重寫,內容相同
 - 原因:patterns repo 加 DC 五分類% catalog + viewer 新 section(YC 指定 display-only,無 hi/lo/refHistory),viewer mapping 需重 bundle 才會跟到。OPD handout col 3「血液」下方新增「白血球分類 (DC)」section 顯示 5 DC% — WBC 維持原位顯示。
-- 測試:`node sync-patterns.js` 成功;`mapping.js` 含 5 條 DC pattern + 新 section block(grep 確認)。真機 reload extension + 開 vhyl `[病歷號]` 確認 DC% 在新 section 顯示中性色、console 無 error 留待 YC 在 vhyl 機器上跑(brief T7 / T8 手動部分)
+- 測試:`node sync-patterns.js` 成功;`mapping.js` 含 5 條 DC pattern + 新 section block(grep 確認)。真機 reload extension + 開 vhyl `[病歷號-E]` 確認 DC% 在新 section 顯示中性色、console 無 error 留待 YC 在 vhyl 機器上跑(brief T7 / T8 手動部分)
 - 相依:hospital-lab-patterns 同輪 commit + push(catalog.js + viewer.js + dist/patterns.json)
 - 影響:OPD popup 24h 內透過 `dist/patterns.json` 自動拿到(本地 reload extension 可立即生效;6h orders cache 要點 freshness ↻ 強刷才會用新 regex 重 parse);A5 manifest 不含 DC,A5 版面不變
 
@@ -239,8 +251,8 @@
 - 對應 brief:`hospital-lab-patterns/docs/task-briefs/TASK_BRIEF_platelet_PLATE_alternation_done.md`
 - 檔案:
   - `mapping.js`、`normalizers.js`、`patterns-computed.js`:`node sync-patterns.js` 重產出(實際只有 mapping.js Platelet pattern 一行差異;normalizers / patterns-computed 為 line-ending 重寫,內容相同)
-- 原因:patterns repo 修 catalog Platelet regex 加 PLATE alternation(`/Platelet:/` → `/(?:Platelet|PLATE):/`),viewer mapping 需重 bundle 才會跟到。修因:ernode CBC 套餐 reportText 印 `PLATE:` 而非 `Platelet:`,舊 regex 漏抓 — vhtt `[病歷號]` 5/20 CBC 套餐的 Platelet 89 看不到
-- 測試:`node sync-patterns.js` 成功;`git diff mapping.js | grep Platelet` 確認 alternation 已進 mapping。真機 reload extension + 開 vhtt `[病歷號]` 確認 Platelet row 兩筆(89 紅色 + 158)留待 YC 在 vhtt 機器上跑(brief T5)
+- 原因:patterns repo 修 catalog Platelet regex 加 PLATE alternation(`/Platelet:/` → `/(?:Platelet|PLATE):/`),viewer mapping 需重 bundle 才會跟到。修因:ernode CBC 套餐 reportText 印 `PLATE:` 而非 `Platelet:`,舊 regex 漏抓 — vhtt `[病歷號-F]` 5/20 CBC 套餐的 Platelet 89 看不到
+- 測試:`node sync-patterns.js` 成功;`git diff mapping.js | grep Platelet` 確認 alternation 已進 mapping。真機 reload extension + 開 vhtt `[病歷號-F]` 確認 Platelet row 兩筆(89 紅色 + 158)留待 YC 在 vhtt 機器上跑(brief T5)
 - 相依:hospital-lab-patterns 同輪 commit + push(catalog.js + dist/patterns.json)
 - 影響:OPD popup 24h 內透過 `dist/patterns.json` 自動拿到(本地 reload extension 可立即生效;6h orders cache 要點 freshness ↻ 強刷才會用新 regex 重 parse)
 
@@ -317,8 +329,8 @@
   - `lab-core.js`：新增共用 `cleanImagingReport(rawText)` + helper（`stripImagingHeaderLines` / `cleanImagingReportText` / `IMAGING_HEADER_LABELS`），三層 cleaning：①「報告內容：」分隔線主路徑取 free text ②無分隔線時逐行 strip 已知表頭欄位行（BMD/CAC 格式備援）③通用清理（box 字元 / LDCT 協議括號段 / 檢查項目碼行 / ernode 稽核表單 / 空行收斂）。從 cxr.js 逐字抽出，行為一致。
   - `cxr.js`：移除自有 `CXR_HEADER_LABELS` / `cxrStripHeaderLines` / `cxrCleanReportText` / `cxrExtractReportText`，`cxrFetchPatient` 改 call lab-core 的 `cleanImagingReport(subpageText)`。同一份邏輯，cxr.html 健檢視窗行為不變。
   - `popup.js`：`renderSection` 對 imaging row（`isRad`）在 render 層過 `cleanImagingReport(o.reportText)` 再丟 `makeExpandableCell`；lab row 不套（檢驗結果格式套 imaging cleaning 會破壞）。只 touch render path，不改 `parseOrdersPage` cell 抓法、不污染 data layer。
-- 原因：`TASK_BRIEF_imaging_report_cleaning_share`。master orders page 對 imaging row 把整份子頁面（letterhead + 表頭 + body）concat 進 `cells[2].textContent`，popup 直接 truncate 前 80 字 → 使用者只看到 letterhead，看不到 finding/impression（vhtt [病歷號] LDCT 回報）。fix 是對既抓到的 `reportText` 套 cleaning 留 body —— 不 fetch 子頁面（點「正式報告」navigate 過去反而只有空殼）。
-- 測試：`node --check` 三檔皆 OK（無 const 重複宣告 SyntaxError）；vm-load 真實 lab-core.js 的 node harness 17/17 PASS — [病歷號] LDCT 主路徑輸出含「A 6mm subpleural nodule over RUL」「Mild fibrotic change over LLL」、letterhead/表頭/檢查項目碼/協議括號/box/敬告/列印日期全 strip；BMD 備援路徑（無「報告內容：」）逐行 strip 表頭；稽核表單 layer；空值/null 邊界。⏳ 待 YC 實機（vhtt 院內網 + OPSID）：[病歷號] / [病歷號] popup LDCT/CAC/Bone density row 展開看完整 finding、cxr.html 健檢視窗 LDCT 翻譯前後對照無 regression、lab orders（如 [病歷號]）顯示不受影響。
+- 原因：`TASK_BRIEF_imaging_report_cleaning_share`。master orders page 對 imaging row 把整份子頁面（letterhead + 表頭 + body）concat 進 `cells[2].textContent`，popup 直接 truncate 前 80 字 → 使用者只看到 letterhead，看不到 finding/impression（vhtt [病歷號-G] LDCT 回報）。fix 是對既抓到的 `reportText` 套 cleaning 留 body —— 不 fetch 子頁面（點「正式報告」navigate 過去反而只有空殼）。
+- 測試：`node --check` 三檔皆 OK（無 const 重複宣告 SyntaxError）；vm-load 真實 lab-core.js 的 node harness 17/17 PASS — [病歷號-G] LDCT 主路徑輸出含「A 6mm subpleural nodule over RUL」「Mild fibrotic change over LLL」、letterhead/表頭/檢查項目碼/協議括號/box/敬告/列印日期全 strip；BMD 備援路徑（無「報告內容：」）逐行 strip 表頭；稽核表單 layer；空值/null 邊界。⏳ 待 YC 實機（vhtt 院內網 + OPSID）：[病歷號-G] / [病歷號-H] popup LDCT/CAC/Bone density row 展開看完整 finding、cxr.html 健檢視窗 LDCT 翻譯前後對照無 regression、lab orders（如 [病歷號-I]）顯示不受影響。
 - 相依：純 viewer，不動 patterns catalog / computed / manifest，**不需 sync-patterns**；IndexedDB schema 不變（`DB_VER 6` 不動）。auto-zip 略過（CLAUDE.md 指定的 Dropbox 路徑在 vhtt 不存在，reload 本地 unpacked source 即可）。
 
 ## 2026-05-22 — CKD/DM 篩檢 Dashboard S3：四欄資格並排 + CSV + 批次列印（read-only 收尾）
@@ -533,17 +545,17 @@
     `handlePrint`、列印按鈕、A5/HIV checkbox、debug 按鈕完全未動。
   - **新增可選功能** — Dashboard 按鈕,不影響既有單人模式。
 - 測試（需 YC 在實機驗證）：
-  - 既有單人模式 regression：[病歷號] dialysis、[病歷號]（CKD/DM）、
+  - 既有單人模式 regression：[病歷號-I] dialysis、[病歷號-J]（CKD/DM）、
     任何 vhtt / vhyl 已知病人,確認 popup 行為等價（freshness badge、
     cache hit、列印 page 1 + A5）。
   - Dashboard：
     1. 開啟 popup → 按 `📊 Dashboard` → 1400×900 視窗開啟。
-    2. textarea 貼 3 個以上病歷號（含 [病歷號]/[病歷號]/[病歷號]）→ 按
+    2. textarea 貼 3 個以上病歷號（含 [病歷號-J]/[病歷號-K]/[病歷號-I]）→ 按
        「開始篩檢」→ progress bar 跳動 → 表格出現 16 欄資料。
     3. UACR/Sugar/HbA1c/eGFR 異常值紅字。
     4. EKG/ABI/PVR/Fundus 日期欄 > 180 天橘底 / > 365 天紅底。
     5. 若有「未執行」EKG/ABI/PVR/Fundus → 顯示 ⚠️ 已開未做 + 上次簽收。
-    6. DM EDUCATION 病人（如 [病歷號]）→ DM 衛教欄有兩行「日期 / 此次
+    6. DM EDUCATION 病人（如 [病歷號-J]）→ DM 衛教欄有兩行「日期 / 此次
        問題 / 衛教」;hover 看完整 tooltip。
     7. 收案判定：eGFR ≥ 45 + 有腎臟損傷 → Early-CKD ✅;eGFR < 45 →
        Pre-ESRD ✅;有 DM EDUCATION → DM tag。
@@ -565,12 +577,12 @@
 - 變更：修改
 - 檔案：`mapping.js`（由 `node sync-patterns.js` 重產，源 patterns repo `patterns/catalog.js`）；`normalizers.js` / `patterns-computed.js` 也一併重產但內容未變。
 - 原因：patterns repo 同日 commit 為 `TASK_BRIEF_ckd_screening_dashboard` S1 加入 4 個檢查 entry（EKG / ABI / PVR / Fundus，category =「檢查」）。S2 Dashboard 才會消費；S1 純 sync。
-- viewer 影響：**無行為變化**。這四個 catalog entry 不在 `VIEWER_MANIFEST`，`TEST_MAP = _resolveManifest(VIEWER_MANIFEST, CATALOG)` 不會解析到，故 `report.js` 既有單人報表（含 dialysis [病歷號]）零影響。
+- viewer 影響：**無行為變化**。這四個 catalog entry 不在 `VIEWER_MANIFEST`，`TEST_MAP = _resolveManifest(VIEWER_MANIFEST, CATALOG)` 不會解析到，故 `report.js` 既有單人報表（含 dialysis [病歷號-I]）零影響。
 - 測試：
   - `node sync-patterns.js` 三個檔案皆 `✓`，無 warning。
   - 機械驗證：grep `mapping.js` 確認四個 id（EKG / ABI / PVR / Fundus）的 `{ id:'…' }` 區塊已 bundle 進來（行 849 起）。
   - Regex 樣本對照測試在 patterns repo 端跑過 6/6 PASS（見 patterns WORKLOG 同日）。
-  - **待 YC 載入未封裝擴充功能、開一筆已知病人（建議 [病歷號] dialysis）popup → 確認頂部 freshness badge ✓ fresh、單人報表沒新增意外欄位**。
+  - **待 YC 載入未封裝擴充功能、開一筆已知病人（建議 [病歷號-I] dialysis）popup → 確認頂部 freshness badge ✓ fresh、單人報表沒新增意外欄位**。
 - 相依：patterns repo 同日 commit 必須先 push。
 
 ## 2026-05-20 — sync 拉新版 computed.js（URR / CaxP 命名對齊）
@@ -707,7 +719,7 @@
   `4` 當成空腹血糖 mg/dL。Viewer 報表 page 1 col 1 的「血糖」欄會直接
   受惠 — 從此 vhtt 同日有尿液常規 + 真血糖的病人，不會把尿糖 `4+` 誤
   顯示為血糖 4。
-- 測試：YC 在 vhtt [病歷號] 115/02/26 開 popup 列印報表，原本血糖欄
+- 測試：YC 在 vhtt [病歷號-L] 115/02/26 開 popup 列印報表，原本血糖欄
   位顯示 `4`（且被 alarm 為 ↓），sync 後該日期該欄位應改顯示真實血糖
   （或空白若該日無血清 AC sugar）。
 - 相依：patterns repo 同日 commit（catalog GluAC pattern 收緊）。
@@ -725,7 +737,7 @@
   `patterns-computed.js` 的 `PSARatio` 函式驅動（`PSA == null ||
   FreePSA == null` 直接 return null），所以 vhtt 病人從此不會看到
   錯誤的 PSARatio；其他院區若有真的 Free PSA 數值仍正常顯示。
-- 測試：YC 在 vhtt 病人 [病歷號] / [病歷號] 開 popup 列印報表，
+- 測試：YC 在 vhtt 病人 [病歷號-M] / [病歷號-N] 開 popup 列印報表，
   原本 PSARatio 段被誤觸發顯示「警示」字樣，sync 後該段應變空白
   （PSA > 4 才算的，這兩位 PSA<1，本來就不該觸發 — 修完更乾淨）。
 - 相依：patterns repo 同日 commit（catalog FreePSA pattern 修正）。
@@ -798,14 +810,14 @@
 - 原因：`report.js` 的 `findNearby()` 用 `THREE_MONTHS_MS = 90 * 24 * 60 *
   60 * 1000` 把 UACR / UPCR 配到同 patient 90 天內任一 eGFR 日期，導致
   單筆 UACR 會被多個 eGFR 日期共用、在實際沒有 UACR 的日期顯示誤導
-  staging。實際 case [病歷號]：UACR 57.20 在 115/02/13，eGFR 在
+  staging。實際 case [病歷號-O]：UACR 57.20 在 115/02/13，eGFR 在
   114/11/18（87 天前）也被配上 → KDIGO=「中」(錯)；115/02/13 的 eGFR
   也是「中」(對)。改成 30 天窗口後只剩同日精準配對，前者不再產生
   staging。改名 const `THREE_MONTHS_MS` → `ONE_MONTH_MS`，更新對照
   comment（266 行）+ 兩處 caller comment（KDIGO + TaiwanCKD），CLAUDE.md
   的 「3-month-nearest」描述也同步改 1-month 並補上 2026-05-07 緊縮的
   reason 註記。
-- 測試：等 OPD 端用 chartno [病歷號] 開 popup → 列印報表 → 114/11/18
+- 測試：等 OPD 端用 chartno [病歷號-O] 開 popup → 列印報表 → 114/11/18
   eGFR 列 KDIGO 應變空白（無 UACR within 30 days）；115/02/13 eGFR 列
   KDIGO 仍顯示「中」（exact match UACR=57.20）。
 - 相依：本 repo 內部修改，**不需** patterns repo 改動 — `findNearby` 是
@@ -973,7 +985,7 @@
   （`computed: EarlyCKD 非 CKD 時回傳「正常」(視覺一致性)`）。viewer 端同步
   把獨立的 client-side pairing 迴圈改成在「TaiwanCKD = 正常」分支也 push
   一筆 EarlyCKD「正常」cell，讓使用者不會把空白誤判為「漏抓」（病患
-  [病歷號]：3 筆紀錄中只有 115/02/02 顯示 P1，其餘 2 格空白）。
+  [病歷號-P]：3 筆紀錄中只有 115/02/02 顯示 P1，其餘 2 格空白）。
 - sync 結果：`node sync-patterns.js` 重跑，三檔 banner timestamp 刷新。
   `patterns-computed.js:139–143` 確認 `EarlyCKD()` 已是新版（`tw === '正常'`
   回傳 `'正常'`，eGFR null 仍回 null）。
@@ -996,7 +1008,7 @@
   - `EarlyCKD({TaiwanCKD:'第三期 3b', eGFR:35})` → `'P2中晚期'` ✓
   - `EarlyCKD({TaiwanCKD:null, eGFR:null})` → `null` ✓
   另以 `node --check report.js` 確認語法 OK。請 YC 在 chrome 載入未封裝
-  擴充後跑 vhyl [病歷號]，確認 3 筆紀錄的健保 CKD 分群欄各顯示
+  擴充後跑 vhyl [病歷號-P]，確認 3 筆紀錄的健保 CKD 分群欄各顯示
   「正常 / P1 早期 / 正常」（顏色：normal / caution / normal），與
   「慢性腎臟病分期」列視覺一致。
 - 重打包：`hospital-lab-viewer.zip` 已重新生成放在 parent folder
@@ -1054,7 +1066,7 @@
 - 重打包：`hospital-lab-viewer.zip` 已重新生成放在 parent folder（14 個
   白名單檔，約 55KB）。
 - 測試：本機環境無法實機跑 Chrome；請 YC 在 chrome 載入未封裝擴充後：
-  1. fetch vhyl `[病歷號]`，確認肝炎欄位顯示「正常 (HBsAg 0.21)」、
+  1. fetch vhyl `[病歷號-P]`，確認肝炎欄位顯示「正常 (HBsAg 0.21)」、
      「正常 (Anti-HCV 0.12)」與 Anti-HBs 實際結果。
   2. fetch 任一 vhtt 病人，確認原 vhtt 顯示不退化（HBsAg 帶原 / 正常
      等仍能顯示）。
@@ -1107,7 +1119,7 @@
 - 觸發：patterns repo 的 Phase 1 已把 `loM/hiM/loF/hiF` 寫進
   catalog 6 條（RBC、Hb、HCT、Fe、TIBC、Ferritin）。本輪 viewer 接手
   把 alarm 判定改成性別感知，解決女性病人 Fe=58 在 viewer 被誤判過低
-  的回報案（vhyl [病歷號]）。
+  的回報案（vhyl [病歷號-P]）。
 - sync 結果：`node sync-patterns.js` 重新打包 mapping.js / normalizers.js /
   patterns-computed.js。手動確認 mapping.js 內六條目都帶了
   `loM/hiM/loF/hiF`（grep 命中 96、105、115、417、426、443 行；對應
@@ -1136,7 +1148,7 @@
   覆蓋 TASK_BRIEF §8 全部 12 個案例（女 Fe 58/45、男 Fe 58/70、unknown
   Fe 58、女 Hb 13/11、男 Hb 13、男女 Ferritin 25 與女 Ferritin 250、
   以及條目無性別欄位的 fallback）→ 12/12 全綠。`node --check report.js`
-  亦通過。請 YC 在 chrome 載入未封裝擴充後跑 vhyl [病歷號] 確認
+  亦通過。請 YC 在 chrome 載入未封裝擴充後跑 vhyl [病歷號-P] 確認
   Fe=58 不再紅字（該病人為女性）。
 - 重打包：`hospital-lab-viewer.zip` 已重新生成（14 個白名單檔，55KB）。
 - 相依：依賴 hospital-lab-patterns repo 的 Phase 1 commit 已 push
@@ -1155,7 +1167,7 @@
   但 viewer 對 hepatitis 三項（HCV、HBsAg、Anti-HBs）是在 `report.js`
   自家硬編 regex 處理（因為要同時呈現定性 + 數值，例如
   「正常 (HBsAg 0.24)」），catalog 改動不會自動同步到這裡。使用者
-  回報 vhyl 病人 [病歷號] 在 viewer 仍空白。
+  回報 vhyl 病人 [病歷號-P] 在 viewer 仍空白。
 - 修改內容：
   - `findHepatitis` HCV：定性 regex 改為
     `/(?:HCV Ab|Anti-HCV)\s*\((?:TT|YL)\):\s*([^\s\d]\S*)/`，
@@ -1180,7 +1192,7 @@
   - vhyl AntiHBs：`Anti-HBs: <num>Anti-HBs (YL): <Reactive|Non-Reactive>`
     → 顯示「有抗體 / 無抗體 (Anti-HBs <num>)」
   - vhtt 既有樣本（`HBsAg(TT): Non-Reactive` 等）維持原狀，不退化。
-- 驗收：side-load 重打包 zip 後重 fetch [病歷號]，HBsAg / Anti-HCV /
+- 驗收：side-load 重打包 zip 後重 fetch [病歷號-P]，HBsAg / Anti-HCV /
   Anti-HBs 三項應改為正常顯示。
 - 跨 repo：無。本輪只動 viewer，catalog / reporter / patterns repo 不受影響。
 - 相依：不需 hospital-lab-patterns 先發版（這次不從 catalog 來）。
@@ -1207,8 +1219,8 @@
   - `normalizers.js`、`patterns-computed.js`：banner timestamp 刷新；
     內容無實質變動（patterns repo 這次只動 catalog）。
 - 原因：
-  - 使用者回報 vhyl 病人 [病歷號] 的 HBsAg / Anti-HCV / AFP、
-    [病歷號] 的 Fe 在 reporter 漏顯示；連帶發現 TSAT 舊 regex
+  - 使用者回報 vhyl 病人 [病歷號-P] 的 HBsAg / Anti-HCV / AFP、
+    [病歷號-Q] 的 Fe 在 reporter 漏顯示；連帶發現 TSAT 舊 regex
     `/SAT:/` 對 vhyl 的 `TS:` label 不命中。
   - patterns repo 已於 2026-05-05 push commit `58eed17`，依跨 repo
     副作用清單，viewer 必須重 sync 以保 offline fallback 與線上 OPD
