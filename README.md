@@ -199,7 +199,8 @@ hospital-lab-viewer/
 ├── options.html / options.js 設定頁
 ├── scripts/install.ps1       一鍵下載腳本（與本 README 內嵌版相同）
 ├── sync-patterns.js          從 hospital-lab-patterns 重產自動產生檔
-├── CLAUDE.md                 給 Claude 的 repo 規則
+├── AGENTS.md                 repo 規則（Claude、Codex 共用）
+├── CLAUDE.md                 以 @AGENTS.md 匯入（Claude 專屬補充）
 └── WORKLOG.md                變更紀錄（繁體中文）
 ```
 
